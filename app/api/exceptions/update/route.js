@@ -11,7 +11,7 @@ export async function PUT(request) {
     const decodedToken = await verifyFirebaseToken(token);
 
     if (!decodedToken) {
-      return jsonError("Unauthorized", 401);
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -33,16 +33,24 @@ export async function PUT(request) {
           reviewedAt: new Date(),
           updatedAt: new Date(),
         },
-      }
+      },
     );
 
     if (result.matchedCount === 0) {
-      return jsonError("Exception not found", 404);
+      return Response.json({ error: "Exception not found" }, { status: 404 });
     }
 
-    return jsonSuccess({ message: "Exception updated successfully" });
+    return Response.json(
+      {
+        success: true,
+        data: {
+          message: "Exception updated successfully",
+        },
+      },
+      { status: 200 },
+    );
   } catch (error) {
     console.error("Exception update error:", error);
-    return jsonError("Internal server error", 500);
+    return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

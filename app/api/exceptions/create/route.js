@@ -10,7 +10,7 @@ export async function POST(request) {
     const decodedToken = await verifyFirebaseToken(token);
 
     if (!decodedToken) {
-      return jsonError("Unauthorized", 401);
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -28,13 +28,16 @@ export async function POST(request) {
 
     return jsonSuccess(
       {
-        id: result.insertedId,
-        message: "Exception request created successfully",
+        success: true,
+        data: {
+          id: result.insertedId,
+          message: "Exception request created successfully",
+        },
       },
-      201
+      { status: 201 },
     );
   } catch (error) {
     console.error("Exception creation error:", error);
-    return jsonError("Internal server error", 500);
+    return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -11,7 +11,12 @@ export async function POST(req) {
     const file = formData.get("photo");
 
     if (!name || !rollNo || !email || !file) {
-      return jsonError("Name, rollNo, email, and photo are required", 400);
+      return NextResponse.json(
+        {
+          error: "Name, rollNo, email, and photo are required",
+        },
+        { status: 400 },
+      );
     }
 
     // Get DB
@@ -21,7 +26,10 @@ export async function POST(req) {
     // Check if user already registered
     const existingUser = await users.findOne({ rollNo });
     if (existingUser) {
-      return jsonError("User already registered with a photo", 409);
+      return NextResponse.json(
+        { error: "User already registered with a photo" },
+        { status: 409 }, // conflict
+      );
     }
 
     // Convert file to buffer
@@ -47,12 +55,23 @@ export async function POST(req) {
     };
     await users.insertOne(user);
 
-    return jsonSuccess({
-      message: "User registered successfully",
-      user,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          message: "User registered successfully",
+          user,
+        },
+      },
+      { status: 201 },
+    );
   } catch (error) {
     console.error(error);
-    return jsonError(error.message || "Registration failed", 500);
+    return NextResponse.json(
+      {
+        error: error.message || "Internal server error",
+      },
+      { status: 500 },
+    );
   }
 }

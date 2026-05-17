@@ -10,7 +10,7 @@ export async function GET(request) {
     const decodedToken = await verifyFirebaseToken(token);
 
     if (!decodedToken) {
-      return jsonError("Unauthorized", 401);
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const db = await connectDb();
@@ -21,9 +21,15 @@ export async function GET(request) {
       .sort({ createdAt: -1 })
       .toArray();
 
-    return jsonSuccess({ exceptions });
+    return Response.json(
+      {
+        success: true,
+        data: exceptions,
+      },
+      { status: 200 },
+    );
   } catch (error) {
     console.error("Exception fetch error:", error);
-    return jsonError("Internal server error", 500);
+    return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
