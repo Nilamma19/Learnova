@@ -623,7 +623,7 @@ export function Navbar() {
               )}
               <div className="text-center">
                 <p className="text-white/40 text-xs">
-                  © 2024 Learnova. All rights reserved.
+                  © {new Date().getFullYear()} Learnova. All rights reserved.
                 </p>
               </div>
             </div>
