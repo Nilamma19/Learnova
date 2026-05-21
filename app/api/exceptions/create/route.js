@@ -14,10 +14,24 @@ export async function POST(request) {
     }
 
     const body = await request.json();
+    const { reason, details, date } = body;
+
+    if (!reason || typeof reason !== "string" || reason.trim() === "") {
+      return jsonError("Reason is required and must be a string", 400);
+    }
+    if (!details || typeof details !== "string" || details.trim() === "") {
+      return jsonError("Details are required and must be a string", 400);
+    }
+    if (!date || typeof date !== "string" || date.trim() === "") {
+      return jsonError("Date is required and must be a string", 400);
+    }
+
     const db = await connectDb();
 
     const exceptionData = {
-      ...body,
+      reason: reason.trim(),
+      details: details.trim(),
+      date: date.trim(),
       studentEmail: decodedToken.email,
       status: "pending",
       createdAt: new Date(),
