@@ -44,6 +44,7 @@ import {
 import { Navbar } from "./Navbar";
 import dynamic from "next/dynamic";
 import ChartSkeleton from "@/components/ui/ChartSkeleton";
+import DashboardSkeleton from "@/components/ui/DashboardSkeleton";
 
 const AttendanceTrendsChart = dynamic(
   () => import("@/components/charts/AttendanceTrendsChart"),
@@ -60,6 +61,12 @@ const InstituteDashboard = () => {
   );
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isLoading, setIsLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setInitialLoading(false), 1200);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Mock data - in real app, this would come from your backend
   const [dashboardData, setDashboardData] = useState({
@@ -1031,6 +1038,10 @@ const InstituteDashboard = () => {
       </div>
     </div>
   );
+
+  if (initialLoading) {
+    return <DashboardSkeleton />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">

@@ -3,7 +3,7 @@ import {
   collection,
   doc,
   getDoc,
-  getDocs,
+  getCountFromServer,
   increment,
   query,
   setDoc,
@@ -111,8 +111,8 @@ export const recalculateAttendanceRate = async (userId) => {
       await initializeUserStats(userId);
     }
 
-    const attendanceSnap = await getDocs(attendanceQuery);
-    const presentDays = attendanceSnap.size;
+    const countSnapshot = await getCountFromServer(attendanceQuery);
+    const presentDays = countSnapshot.data().count;
     const totalDays = getWeekdaysSinceYearStart();
     const rate = Math.min(100, Math.round((presentDays / totalDays) * 100));
 
@@ -126,5 +126,63 @@ export const recalculateAttendanceRate = async (userId) => {
   } catch (error) {
     console.error("Error recalculating attendance rate:", error);
     throw error;
+  }
+};
+
+/**
+ * Checks if a user's attendance rate is below 75% and sends an email alert using EmailJS.
+ * Prevents spamming by checking `lastLowAttendanceAlertSentAt` (7-day cooldown).
+ * @param {string} userId - The Firebase Auth user ID.
+ * @param {string} studentName - The student's name.
+ * @param {string} studentEmail - The student's email address.
+ * @param {number} currentRate - The newly calculated attendance rate.
+ * @returns {Promise<boolean>} True if an email was sent, false otherwise.
+ */
+export const checkAndSendAttendanceAlert = async (userId, studentName, studentEmail, currentRate) => {
+  if (!userId || currentRate >= 75 || !studentEmail) return false;
+
+  const statsRef = doc(db, "userStats", userId);
+  
+  try {
+    const statsSnap = await getDoc(statsRef);
+    if (!statsSnap.exists()) return false;
+
+    const data = statsSnap.data();
+    const lastAlertSentAt = data.lastLowAttendanceAlertSentAt?.toDate();
+
+    // 7-day cooldown
+    if (lastAlertSentAt) {
+      const daysSinceLastAlert = (new Date() - lastAlertSentAt) / (1000 * 60 * 60 * 24);
+      if (daysSinceLastAlert < 7) {
+        return false;
+      }
+    }
+
+    // Import emailjs dynamically or statically. Since this runs on client, we can dynamically import it to avoid bundle bloat
+    const emailjs = (await import("@emailjs/browser")).default;
+
+    // Send the email
+    await emailjs.send(
+      process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID,
+      process.env.NEXT_PUBLIC_EMAILJS_ALERT_TEMPLATE_ID,
+      {
+        to_name: studentName,
+        to_email: studentEmail,
+        attendance_rate: currentRate,
+        message: `Your current attendance rate has dropped to ${currentRate}%. Please ensure you attend future classes to maintain a healthy attendance record.`
+      },
+      process.env.NEXT_PUBLIC_EMAILJS_USER_ID
+    );
+
+    // Update the cooldown timestamp
+    await updateDoc(statsRef, {
+      lastLowAttendanceAlertSentAt: new Date(),
+      lastUpdated: new Date(),
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Error sending low attendance alert:", error);
+    return false;
   }
 };

@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import useLabels from "@/components/useLabels"; // MongoDB hook
 import { recordAttendance } from "@/services/attendanceService";
+import { checkAndSendAttendanceAlert } from "@/services/statsService";
 import { analytics } from "@/lib/firebaseConfig";
 import { logEvent } from "firebase/analytics";
+import toast from "react-hot-toast";
 
 const MIN_CONFIDENCE_TO_RECORD = 60;
 
@@ -252,6 +254,21 @@ export default function FaceRecognizer({ authUser }) {
         });
 
         setAttendanceState(result.alreadyRecorded ? "already-recorded" : "saved");
+
+        if (result.newRate !== undefined && result.newRate < 75) {
+          const alertSent = await checkAndSendAttendanceAlert(
+            authUser.uid,
+            detectedPerson.name,
+            detectedPerson.email || authUser.email,
+            result.newRate
+          );
+          if (alertSent) {
+            toast.error(`Warning: Your attendance is ${result.newRate}%. An alert email has been sent.`, {
+              icon: "⚠️",
+              duration: 5000,
+            });
+          }
+        }
       } catch (err) {
         console.error("Attendance save error:", err);
         setAttendanceState("error");

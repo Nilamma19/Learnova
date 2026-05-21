@@ -8,11 +8,20 @@ export async function PUT(request) {
     const authorization = request.headers.get("authorization");
     const token = authorization?.split(" ")[1];
 
-    const decodedToken = await verifyFirebaseToken(token);
+    const authResult = await verifyFirebaseToken(token);
 
-    if (!decodedToken) {
-      return jsonError("Unauthorized", 401);
+    if (!authResult.valid) {
+      return NextResponse.json(
+        {
+          error: "Unauthorized",
+          reason: authResult.reason,
+        },
+        { status: 401 }
+      );
     }
+
+    const decodedToken = authResult.decodedToken;
+
 
     // Fetch user profile from Firestore to get the user's role
     const profile = await getUserProfile(decodedToken.uid);
@@ -33,13 +42,23 @@ export async function PUT(request) {
       return jsonError("exceptionId is required", 400);
     }
 
+    if (!ObjectId.isValid(exceptionId)) {
+      return jsonError("Invalid exception ID", 400);
+    }
+
+    const trimmedStatus = typeof status === "string" ? status.trim() : "";
+    const allowedStatuses = ["approved", "rejected"];
+    if (!allowedStatuses.includes(trimmedStatus)) {
+      return jsonError("Invalid status value", 400);
+    }
+
     const db = await connectDb();
 
     const result = await db.collection("exceptions").updateOne(
       { _id: new ObjectId(exceptionId) },
       {
         $set: {
-          status,
+          status: trimmedStatus,
           comments,
           reviewedBy: decodedToken.email,
           reviewedAt: new Date(),

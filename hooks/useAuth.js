@@ -1,12 +1,37 @@
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebaseConfig";
-import { onAuthStateChanged } from "firebase/auth";
+import { onIdTokenChanged, signOut as firebaseSignOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
+
+/**
+ * Cookie utility helpers for writing/deleting client cookies
+ */
+const setCookie = (name, value, days = 7) => {
+  if (typeof window !== "undefined") {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+    document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/; SameSite=Lax; Secure`;
+  }
+};
+
+const deleteCookie = (name) => {
+  if (typeof window !== "undefined") {
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax; Secure`;
+  }
+};
 
 /**
  * Provides authentication state and user profile information.
  * Tracks Firebase authentication changes and exposes auth-related utilities.
- * @returns {Object} Authentication state, user profile data, loading state, errors, and helper methods.
+ * @returns {{
+ *   user: Object|null,
+ *   userProfile: Object|null,
+ *   loading: boolean,
+ *   error: string|null,
+ *   signOut: Function,
+ *   isAuthenticated: boolean,
+ *   hasProfile: boolean
+ * }} Authentication state and helper methods.
  */
 export const useAuth = () => {
   const [user, setUser] = useState(null);
@@ -14,12 +39,12 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-
   useEffect(() => {
-     if (!auth) {
-    setLoading(false);
-    return;
-  }
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
@@ -57,10 +82,10 @@ export const useAuth = () => {
   /**
    * Signs out the currently authenticated user and clears local auth state.
    * @returns {Promise<void>} Resolves when the user is successfully signed out.
-  */
+   */
   const signOut = async () => {
     try {
-      await auth.signOut();
+      await firebaseSignOut(auth);
       setUser(null);
       setUserProfile(null);
     } catch (err) {

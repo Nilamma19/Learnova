@@ -12,6 +12,7 @@ export default function Footer() {
     { label: "Activities", href: "/activity" },
     { label: "Contact", href: "/contact" },
     { label: "Register", href: "/register" },
+    { label: "Contributors", href: "/contributors" },
   ];
 
   const sectionLinks = [

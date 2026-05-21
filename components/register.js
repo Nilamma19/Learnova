@@ -10,7 +10,7 @@ import { Navbar } from "@/components/Navbar";
 import { useAuth } from "@/hooks/useAuth";
 import NextImage from "next/image";
 import { validateRequired, validateName } from "@/utils/formValidation";
-
+import { isValidEmail, suggestEmailCorrection } from "@/utils/emailValidation";
 export default function RegisterPage() {
   useEffect(() => {
     if (analytics) {
@@ -24,6 +24,7 @@ export default function RegisterPage() {
   const [photo, setPhoto] = useState(null);
   const [registeredUser, setRegisteredUser] = useState(null);
   const [error, setError] = useState(null);
+  const [emailSuggestion, setEmailSuggestion] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
   // ✅ CORRECT LOCATION: Prefill email from auth user using useEffect
@@ -50,6 +51,19 @@ export default function RegisterPage() {
       setError(rollNoValidation);
       return;
     }
+    if (!isValidEmail(email)) {
+  const suggestion = suggestEmailCorrection(email);
+  const message = suggestion
+    ? `Invalid email. Did you mean ${suggestion}?`
+    : "Please enter a valid email address.";
+
+  setEmailSuggestion(suggestion || null);
+  setError(message);
+  toast.error(message);
+
+  return;
+}
+setEmailSuggestion(null);
 
     const photoValidation = validateRequired(photo, "Profile Photo");
     if (photoValidation !== true) {

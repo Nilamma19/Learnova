@@ -226,24 +226,28 @@ export default function ActivityPage() {
   });
 
   const handleStartActivity = async (activity) => {
-    if (!user) {
-      router.push("/auth");
-      return;
+  try {
+    // Only log if user exists
+    if (user) {
+      await logActivity(user.uid, {
+        title: activity.title,
+        type: activity.type || "course",
+        progress: 0,
+      });
+
+      // Increment statistic
+      await updateUserStat(user.uid, "Courses Enrolled", 1);
     }
 
-    // Log the activity to the database
-    await logActivity(user.uid, {
-      title: activity.title,
-      type: activity.type || "course",
-      progress: 0,
-    });
+    // Open activity page
+    router.push(`/activity/${activity.id}`);
+  } catch (error) {
+    console.error("Error starting activity:", error);
 
-    // Increment "Courses Enrolled" statistic
-    await updateUserStat(user.uid, "Courses Enrolled", 1);
-
-    // Here add logic to actually open the quiz/game
-    alert(`Started ${activity.title}! Progress is now being tracked.`);
-  };
+    // Still open page even if logging fails
+    router.push(`/activity/${activity.id}`);
+  }
+};
 
   const getDifficultyColor = (difficulty) => {
     switch (difficulty) {

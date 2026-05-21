@@ -54,6 +54,7 @@ import {
 import dynamic from "next/dynamic";
 import ChartSkeleton from "@/components/ui/ChartSkeleton";
 import DashboardSkeleton from "@/components/ui/DashboardSkeleton";
+import SkeletonCard from "@/components/ui/SkeletonCard";
 
 const AttendanceTrendsChart = dynamic(
   () => import("@/components/charts/AttendanceTrendsChart"),
@@ -664,9 +665,10 @@ const TeacherDashboard = () => {
 
             <div className="space-y-3">
               {isLoadingRequests ? (
-                <div className="text-center py-8">
-                  <RefreshCw className="w-8 h-8 text-gray-600 mx-auto mb-3 animate-spin" />
-                  <p className="text-gray-400">Loading exception requests...</p>
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <SkeletonCard key={i} />
+                  ))}
                 </div>
               ) : requestsError ? (
                 <div className="text-center py-8">

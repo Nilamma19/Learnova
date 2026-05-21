@@ -1,12 +1,9 @@
-import { put, del } from "@vercel/blob";
+import { put } from "@vercel/blob";
 import { randomUUID } from "crypto";
 import { connectDb } from "@/lib/mongodb";
 import { jsonError, jsonSuccess } from "@/lib/api-response";
+import { suggestEmailCorrection } from "@/utils/emailValidation";
 import { verifyFirebaseToken } from "@/lib/firebase-admin";
-
-export const rateLimitMap = new Map();
-const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
-const MAX_ATTEMPTS = 5;
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set([
@@ -18,38 +15,6 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const normalizeText = (value) =>
   typeof value === "string" ? value.trim() : "";
-
-const isValidImageMagicBytes = async (file) => {
-  try {
-    if (typeof file.slice !== "function") return null;
-    const headerBuffer = await file.slice(0, 12).arrayBuffer();
-    const arr = new Uint8Array(headerBuffer);
-    if (arr.length < 4) return null;
-
-    // Check PNG: 89 50 4E 47
-    if (arr[0] === 0x89 && arr[1] === 0x50 && arr[2] === 0x4e && arr[3] === 0x47) {
-      return "image/png";
-    }
-
-    // Check JPEG: FF D8 FF
-    if (arr[0] === 0xff && arr[1] === 0xd8 && arr[2] === 0xff) {
-      return "image/jpeg";
-    }
-
-    // Check WebP: RIFF (bytes 0-3) and WEBP (bytes 8-11)
-    if (
-      arr[0] === 0x52 && arr[1] === 0x49 && arr[2] === 0x46 && arr[3] === 0x46 &&
-      arr.length >= 12 &&
-      arr[8] === 0x57 && arr[9] === 0x45 && arr[10] === 0x42 && arr[11] === 0x50
-    ) {
-      return "image/webp";
-    }
-
-    return null;
-  } catch (err) {
-    return null;
-  }
-};
 
 const getImageExtension = (mimeType) => {
   switch (mimeType) {
@@ -65,6 +30,25 @@ const getImageExtension = (mimeType) => {
 
 export async function POST(req) {
   try {
+    // 1. Authenticate Request
+    const authorization = req.headers.get("authorization");
+    const token = authorization?.split(" ")[1];
+
+    if (!token) {
+      return jsonError("Unauthorized: No token provided", 401);
+    }
+
+    const authResult = await verifyFirebaseToken(token);
+
+    if (!authResult.valid) {
+      return jsonError(
+        { message: "Unauthorized", reason: authResult.reason },
+        401
+      );
+    }
+
+    const decodedToken = authResult.decodedToken;
+
     const formData = await req.formData();
     const name = normalizeText(formData.get("name"));
     const rollNo = normalizeText(formData.get("rollNo"));
@@ -75,53 +59,9 @@ export async function POST(req) {
       return jsonError("Name, rollNo, email, and photo are required", 400);
     }
 
-    if (!(file instanceof File)) {
-      return jsonError("Photo must be a valid file", 400);
-    }
-
-    if (!EMAIL_PATTERN.test(email)) {
-      return jsonError("Invalid email address", 400);
-    }
-
-    // Rate Limiting Check
-    const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
-    const now = Date.now();
-    if (!rateLimitMap.has(ip)) {
-      rateLimitMap.set(ip, []);
-    }
-    const attempts = rateLimitMap.get(ip).filter((timestamp) => now - timestamp < RATE_LIMIT_WINDOW);
-    attempts.push(now);
-    rateLimitMap.set(ip, attempts);
-
-    if (attempts.length > MAX_ATTEMPTS) {
-      console.warn(`[Rate Limit] Registration rate limit exceeded for IP: ${ip} at ${new Date(now).toISOString()}`);
-      return jsonError("Too many registration attempts. Please try again later.", 429);
-    }
-
-    // Token Authentication & Authorization Check
-    const authorization = req.headers.get("authorization");
-    const token = authorization?.split(" ")[1];
-    const decodedToken = await verifyFirebaseToken(token);
-
-    if (!decodedToken) {
-      return jsonError("Unauthorized", 401);
-    }
-
+    // 2. Prevent arbitrary registrations - Must register own email
     if (decodedToken.email !== email) {
-      return jsonError("Forbidden: You can only register using your authenticated email.", 403);
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-      return jsonError("File too large. Max size is 5MB.", 413);
-    }
-
-    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
-      return jsonError("Invalid file type. Only JPEG, PNG, and WebP images are allowed.", 400);
-    }
-
-    const detectedMimeType = await isValidImageMagicBytes(file);
-    if (!detectedMimeType || detectedMimeType !== file.type) {
-      return jsonError("Invalid file content. The file headers do not match the expected image format.", 400);
+      return jsonError("Forbidden: Cannot register face for a different user", 403);
     }
 
     // Get DB
@@ -151,31 +91,22 @@ export async function POST(req) {
       access: "public",
     });
 
-    try {
-      // Save user record in DB
-      const user = {
-        name,
-        rollNo,
-        email,
-        image: blob.url,
-      };
-      await users.insertOne(user);
+    // Save user record in DB
+    const user = {
+      name,
+      rollNo,
+      email,
+      image: blob.url,
+    };
+    await users.insertOne(user);
 
-      return jsonSuccess(
-        {
-          message: "User registered successfully",
-          user,
-        },
-        201,
-      );
-    } catch (dbError) {
-      try {
-        await del(blob.url);
-      } catch (cleanupError) {
-        console.error("Failed to delete orphaned blob during rollback:", cleanupError);
-      }
-      throw dbError;
-    }
+    return jsonSuccess(
+      {
+        message: "User registered successfully",
+        user,
+      },
+      201,
+    );
   } catch (error) {
     console.error(error);
     return jsonError(error.message || "Internal server error", 500);
