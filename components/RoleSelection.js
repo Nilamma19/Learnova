@@ -76,21 +76,21 @@ export default function RoleSelection({ onRoleSelect }) {
         <div className="p-6 bg-slate-900/40 backdrop-blur-xl rounded-2xl border border-white/5 hover:border-white/10 transition-all duration-300">
           <Shield className="w-10 h-10 text-indigo-400 mx-auto mb-4" />
           <h4 className="font-bold text-white mb-2 text-base">Secure Access</h4>
-          <p className="text-slate-400 text-sm leading-relaxed">
+          <p className="text-slate-100 text-sm leading-relaxed">
             Role-based permissions and high-security compliance standards
           </p>
         </div>
         <div className="p-6 bg-slate-900/40 backdrop-blur-xl rounded-2xl border border-white/5 hover:border-white/10 transition-all duration-300">
           <Zap className="w-10 h-10 text-purple-400 mx-auto mb-4" />
           <h4 className="font-bold text-white mb-2 text-base">Real-time Sync</h4>
-          <p className="text-slate-400 text-sm leading-relaxed">
+          <p className="text-slate-100 text-sm leading-relaxed">
             Instant database updates synced seamlessly across all devices
           </p>
         </div>
         <div className="p-6 sm:col-span-2 lg:col-span-1 bg-slate-900/40 backdrop-blur-xl rounded-2xl border border-white/5 hover:border-white/10 transition-all duration-300">
           <Sparkles className="w-10 h-10 text-pink-400 mx-auto mb-4" />
           <h4 className="font-bold text-white mb-2 text-base">Custom Dashboard</h4>
-          <p className="text-slate-400 text-sm leading-relaxed">
+          <p className="text-slate-100 text-sm leading-relaxed">
             Tailored layouts built for your specialized platform activities
           </p>
         </div>
