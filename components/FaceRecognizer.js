@@ -130,7 +130,19 @@ export default function FaceRecognizer({ authUser }) {
       await Promise.all(
         labels.map(async (student) => {
           try {
-            const img = await faceapi.fetchImage(student.image); // full URL from MongoDB
+            const token = await authUser?.getIdToken();
+            const res = await fetch(`/api/images?id=${student._id}`, {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+
+            if (!res.ok) {
+              console.warn(`Could not load image for ${student.name}: ${res.status}`);
+              return null;
+            }
+
+            const blob = await res.blob();
+            const img = await faceapi.env.getEnv().createImageFromBlob(blob);
+
             const detection = await faceapi
               .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions())
               .withFaceLandmarks()

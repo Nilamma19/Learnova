@@ -98,12 +98,17 @@ export async function POST(req) {
       email,
       image: blob.url,
     };
-    await users.insertOne(user);
+    const result = await users.insertOne(user);
 
     return jsonSuccess(
       {
         message: "User registered successfully",
-        user,
+        user: {
+          _id: result.insertedId,
+          name: user.name,
+          rollNo: user.rollNo,
+          email: user.email,
+        },
       },
       201,
     );

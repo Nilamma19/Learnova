@@ -50,11 +50,16 @@ export async function GET(request) {
     const users = db.collection("users");
 
     const allUsers = await users
-      .find(query, { projection: { _id: 0, name: 1, email: 1, image: 1 } })
+      .find(query, { projection: { _id: 1, name: 1, email: 1, image: 1 } })
       .limit(50)
       .toArray();
 
-    return jsonSuccess(allUsers, 200);
+    const sanitizedUsers = allUsers.map(({ image, ...rest }) => ({
+      ...rest,
+      hasImage: !!image,
+    }));
+
+    return jsonSuccess(sanitizedUsers, 200);
   } catch (err) {
     console.error("❌ Error fetching labels:", err);
     return jsonError("Failed to fetch labels", 500);
