@@ -1,16 +1,17 @@
 import { connectDb } from "@/lib/mongodb";
-import { verifyFirebaseToken } from "@/lib/firebase-admin";
-import { jsonError, jsonSuccess } from "@/lib/api-response";
-import { NextResponse } from "next/server";
+import { jsonSuccess } from "@/lib/api-response";
 import { z } from "zod";
 import xss from "xss";
+import { withErrorHandler, authenticateRequest } from "@/lib/error-handler";
+import { AppError, ValidationError } from "@/lib/errors";
 
 const sanitizeText = (text) => {
   if (typeof text !== "string") return "";
-  // Strip <script> tags to prevent XSS injection
-  return text
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-    .trim();
+  return xss(text, {
+    whiteList: {},
+    stripIgnoreTag: true,
+    stripIgnoreTagBody: ["script"],
+  }).trim();
 };
 
 const conversationSchema = z.object({
@@ -33,100 +34,66 @@ const conversationSchema = z.object({
     .transform(sanitizeText),
 });
 
-export async function POST(req) {
-  try {
-    const authorization = req.headers.get("authorization");
-    const token = authorization?.split(" ")[1];
-
-    const authResult = await verifyFirebaseToken(token);
-
-    if (!authResult.valid) {
-      return jsonError(
-        { message: "Unauthorized", reason: authResult.reason },
-        401
-      );
-    }
-
-    const decodedToken = authResult.decodedToken;
+export const POST = withErrorHandler(async (req) => {
+  const decodedToken = await authenticateRequest(req);
 
 
-    // Enforce maximum document size (1MB = 1048576 bytes)
-    const contentLength = req.headers.get("content-length");
-    if (contentLength && parseInt(contentLength, 10) > 1024 * 1024) {
-      return jsonError("Payload too large", 413);
-    }
-
-    const rawText = await req.text();
-    if (Buffer.byteLength(rawText, "utf8") > 1024 * 1024) {
-      return jsonError("Payload too large", 413);
-    }
-
-    let parsedBody;
-    try {
-      parsedBody = JSON.parse(rawText);
-    } catch (e) {
-      return jsonError("Invalid JSON payload", 400);
-    }
-
-    // Validate using Zod
-    const validation = conversationSchema.safeParse(parsedBody);
-    if (!validation.success) {
-      const firstError =
-        validation.error.issues?.[0]?.message || "Invalid request payload";
-      return jsonError(firstError, 400);
-    }
-
-    const { userMessage, botMessage } = validation.data;
-
-    const db = await connectDb();
-    const collection = db.collection("conversations");
-
-    const newConversation = {
-      userId: decodedToken.uid,
-      userEmail: decodedToken.email,
-      userMessage,
-      botMessage,
-      timestamp: new Date(),
-    };
-
-    await collection.insertOne(newConversation);
-
-    return jsonSuccess(newConversation);
-  } catch (err) {
-    console.error("Save Message Error:", err);
-    return jsonError("Failed to save conversation", 500);
+  // Enforce maximum document size (1MB = 1048576 bytes)
+  const contentLength = req.headers.get("content-length");
+  if (contentLength && parseInt(contentLength, 10) > 1024 * 1024) {
+    throw new AppError("Payload too large", 413);
   }
-}
 
-export async function GET(request) {
-  try {
-    const authorization = request.headers.get("authorization");
-    const token = authorization?.split(" ")[1];
-
-    const authResult = await verifyFirebaseToken(token);
-
-    if (!authResult.valid) {
-      return jsonError(
-        { message: "Unauthorized", reason: authResult.reason },
-        401
-      );
-    }
-
-    const decodedToken = authResult.decodedToken;
-
-
-    const db = await connectDb();
-    const collection = db.collection("conversations");
-
-    const history = await collection
-      .find({ userId: decodedToken.uid })
-      .sort({ timestamp: 1 })
-      .limit(50)
-      .toArray();
-
-    return jsonSuccess(history);
-  } catch (err) {
-    console.error("Get History Error:", err);
-    return jsonError("Failed to retrieve conversation history", 500);
+  const rawText = await req.text();
+  if (Buffer.byteLength(rawText, "utf8") > 1024 * 1024) {
+    throw new AppError("Payload too large", 413);
   }
-}
+
+  let parsedBody;
+  try {
+    parsedBody = JSON.parse(rawText);
+  } catch (e) {
+    throw new ValidationError("Invalid JSON payload");
+  }
+
+  // Validate using Zod
+  const validation = conversationSchema.safeParse(parsedBody);
+  if (!validation.success) {
+    const firstError = validation.error.issues?.[0]?.message || "Invalid request payload";
+    throw new ValidationError(firstError);
+  }
+
+  const { userMessage, botMessage } = validation.data;
+
+  const db = await connectDb();
+  const collection = db.collection("conversations");
+
+  const newConversation = {
+    userId: decodedToken.uid,
+    userEmail: decodedToken.email,
+    userMessage,
+    botMessage,
+    timestamp: new Date(),
+  };
+
+  await collection.insertOne(newConversation);
+
+  return jsonSuccess(newConversation);
+});
+
+export const GET = withErrorHandler(async (request) => {
+  const decodedToken = await authenticateRequest(request);
+
+
+  const db = await connectDb();
+  const collection = db.collection("conversations");
+
+  const history = await collection
+    .find({ userId: decodedToken.uid })
+    .sort({ timestamp: 1 })
+    .limit(50)
+    .toArray();
+
+  return jsonSuccess(history);
+});
+
