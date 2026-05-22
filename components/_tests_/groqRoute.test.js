@@ -234,4 +234,36 @@ describe("POST /api/groq - Security, Authentication, Rate Limiting, and Timeout 
     expect(response.status).toBe(429);
     expect(body.error).toBe("Too many requests. Please try again later.");
   });
+
+  test("enforces in-memory rate limiting fallback when MongoDB is unavailable", async () => {
+    verifyFirebaseToken.mockResolvedValue({ uid: "user-mongo-down", email: "user@example.com" });
+
+    connectDb.mockRejectedValue(new Error("Connection refused"));
+
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        choices: [{ message: { content: "AI response" } }],
+      }),
+    });
+
+    for (let i = 0; i < 10; i++) {
+      const req = createMockRequest(
+        { authorization: "Bearer valid-token" },
+        { message: `Request ${i}` }
+      );
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+    }
+
+    const req11 = createMockRequest(
+      { authorization: "Bearer valid-token" },
+      { message: "Request 11" }
+    );
+    const response = await POST(req11);
+    const body = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(body.error).toBe("Too many requests. Please try again later.");
+  });
 });
