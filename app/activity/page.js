@@ -480,7 +480,7 @@ export default function ActivityPage() {
                         </div>
                         <span
                           className={`text-sm font-medium ${getDifficultyColor(
-                            activity.difficulty
+                            activity.difficulty,
                           )}`}
                         >
                           {activity.difficulty}
@@ -537,10 +537,11 @@ export default function ActivityPage() {
                         <button
                           key={category.id}
                           onClick={() => setSelectedCategory(category.id)}
-                          className={`flex items-center justify-center px-3 py-2 min-h-[42px] text-xs sm:text-sm rounded-full whitespace-nowrap transition-all duration-300 ${selectedCategory === category.id
-                            ? "bg-gradient-to-r from-accent to-purple-500 text-white shadow-lg shadow-accent/25"
-                            : "bg-black/30 text-gray-300 hover:bg-black/50 hover:text-white border border-white/10"
-                            }`}
+                          className={`flex items-center justify-center px-3 py-2 min-h-[42px] text-xs sm:text-sm rounded-full whitespace-nowrap transition-all duration-300 ${
+                            selectedCategory === category.id
+                              ? "bg-gradient-to-r from-accent to-purple-500 text-white shadow-lg shadow-accent/25"
+                              : "bg-black/30 text-gray-300 hover:bg-black/50 hover:text-white border border-white/10"
+                          }`}
                         >
                           <category.icon className="w-4 h-4 mr-2" />
                           {category.label}
@@ -559,10 +560,11 @@ export default function ActivityPage() {
                         <button
                           key={level.id}
                           onClick={() => setSelectedLevel(level.id)}
-                          className={`px-4 py-2 rounded-full transition-all duration-300 text-sm ${selectedLevel === level.id
-                            ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/25"
-                            : "bg-black/30 text-gray-300 hover:bg-black/50 hover:text-white border border-white/10"
-                            }`}
+                          className={`px-4 py-2 rounded-full transition-all duration-300 text-sm ${
+                            selectedLevel === level.id
+                              ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/25"
+                              : "bg-black/30 text-gray-300 hover:bg-black/50 hover:text-white border border-white/10"
+                          }`}
                         >
                           {level.label}
                         </button>
@@ -586,7 +588,8 @@ export default function ActivityPage() {
                 <p className="text-gray-400">
                   {filteredActivities.length} activities found
                   {selectedCategory !== "all" &&
-                    ` in ${categories.find((c) => c.id === selectedCategory)?.label
+                    ` in ${
+                      categories.find((c) => c.id === selectedCategory)?.label
                     }`}
                   {selectedLevel !== "all" &&
                     ` for ${levels.find((l) => l.id === selectedLevel)?.label}`}
@@ -613,10 +616,11 @@ export default function ActivityPage() {
                             </span>
                           </div>
                           <span
-                            className={`text-xs px-2 py-1 rounded-full font-medium ${activity.type === "quiz"
-                              ? "bg-blue-500/20 text-blue-300"
-                              : "bg-green-500/20 text-green-300"
-                              }`}
+                            className={`text-xs px-2 py-1 rounded-full font-medium ${
+                              activity.type === "quiz"
+                                ? "bg-blue-500/20 text-blue-300"
+                                : "bg-green-500/20 text-green-300"
+                            }`}
                           >
                             {activity.type}
                           </span>
@@ -645,7 +649,7 @@ export default function ActivityPage() {
                         </div>
                         <span
                           className={`font-medium ${getDifficultyColor(
-                            activity.difficulty
+                            activity.difficulty,
                           )}`}
                         >
                           {activity.difficulty}
