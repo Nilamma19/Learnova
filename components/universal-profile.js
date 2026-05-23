@@ -112,6 +112,25 @@ export default function UniversalProfile() {
     fileInputRef.current?.click();
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+    if (file.size > MAX_SIZE) {
+      alert("File size exceeds the 5MB limit. Please select a smaller file.");
+      e.target.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFormData((prev) => ({
+        ...prev,
+        avatar: reader.result,
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const getUserPhoto = () => {
     return user?.photoURL || null;
   };
@@ -559,6 +578,7 @@ export default function UniversalProfile() {
                 ref={fileInputRef}
                 className="hidden"
                 accept="image/*"
+                onChange={handleFileChange}
               />
             </div>
 
