@@ -610,6 +610,7 @@ export function Navbar() {
                   </div>
                 )}
               </div>
+                  </div>
               </div>
             {/* Mobile Footer Area Layout Container */}
             <div className="p-6 border-t border-border space-y-4">
@@ -648,7 +649,8 @@ export function Navbar() {
             </div>
           </div>
         </div>
-      </div>
+      )}
+
     </>
   );
 }
