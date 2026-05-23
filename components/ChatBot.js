@@ -166,36 +166,36 @@ const LearnovaChatbot = () => {
 
   // --- Render Layout ---
   return (
-    <div className="flex flex-col h-screen max-w-4xl mx-auto bg-slate-50 border-x border-slate-200 shadow-sm">
+    <div className="flex flex-col h-screen w-[calc(100vw-1rem)] sm:w-full max-w-4xl mx-auto bg-slate-950/90 backdrop-blur-xl border-x border-purple-500/20 shadow-[0_0_60px_-15px_rgba(139,92,246,0.3)]">
       
       {/* Header Panel */}
-      <header className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-indigo-600 rounded-lg text-white">
-            <Sparkles size={20} />
+      <header className="flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4 bg-slate-900/80 backdrop-blur-xl border-b border-purple-500/20">
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          <div className="p-1.5 sm:p-2 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg text-white shadow-lg shadow-purple-500/25">
+            <Sparkles size={18} />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-800 tracking-tight">Learnova AI</h1>
-            <p className="text-xs text-slate-500 font-medium">Next-Gen Learning Assistant</p>
+            <h1 className="text-base sm:text-lg font-bold text-white tracking-tight">Nova AI</h1>
+            <p className="text-[10px] sm:text-xs text-purple-300/70 font-medium">Next-Gen Learning Assistant</p>
           </div>
         </div>
         
         {/* Environment Banner */}
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold">
+        <div className="flex items-center">
           {hasApiKey ? (
-            <span className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">
-              <CheckCircle2 size={13} /> Live Engine
+            <span className="flex items-center gap-1 text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 sm:px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-semibold backdrop-blur-sm">
+              <CheckCircle2 size={12} /> Live
             </span>
           ) : (
-            <span className="flex items-center gap-1 text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full">
-              <AlertCircle size={13} /> Sandbox Mode
+            <span className="flex items-center gap-1 text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 sm:px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-semibold backdrop-blur-sm">
+              <AlertCircle size={12} /> Sandbox
             </span>
           )}
         </div>
       </header>
 
       {/* Category Selection Tabs */}
-      <nav className="flex items-center gap-2 px-6 py-3 bg-white border-b border-slate-100 overflow-x-auto">
+      <nav className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-2.5 sm:py-3 bg-slate-900/60 backdrop-blur-lg border-b border-white/5 overflow-x-auto scrollbar-none">
         {categories.map((cat) => {
           const IconComponent = cat.icon;
           const isSelected = activeTab === cat.id;
@@ -203,13 +203,13 @@ const LearnovaChatbot = () => {
             <button
               key={cat.id}
               onClick={() => setActiveTab(cat.id)}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+              className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                 isSelected 
-                  ? "bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-xs" 
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent"
+                  ? "bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-sm shadow-purple-500/10" 
+                  : "text-slate-400 hover:bg-white/5 hover:text-slate-200 border border-transparent"
               }`}
             >
-              <IconComponent size={15} className={isSelected ? "text-indigo-600" : "text-slate-400"} />
+              <IconComponent size={14} className={isSelected ? "text-purple-400" : "text-slate-500"} />
               {cat.label}
             </button>
           );
@@ -217,21 +217,23 @@ const LearnovaChatbot = () => {
       </nav>
 
       {/* Main Message Interface */}
-      <main className="flex-1 overflow-y-auto p-6 space-y-6">
+      <main className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {messages.map((msg, index) => {
           const isUser = msg.role === "user";
           return (
-            <div key={index} className={`flex gap-3 max-w-[85%] ${isUser ? "ml-auto flex-row-reverse" : "mr-auto"}`}>
-              <div className={`p-2 h-9 w-9 rounded-lg flex items-center justify-center shrink-0 shadow-xs ${
-                isUser ? "bg-indigo-600 text-white" : "bg-white border border-slate-200 text-indigo-600"
+            <div key={index} className={`flex gap-2 sm:gap-3 max-w-[90%] sm:max-w-[85%] ${isUser ? "ml-auto flex-row-reverse" : "mr-auto"}`}>
+              <div className={`p-1.5 sm:p-2 h-7 w-7 sm:h-9 sm:w-9 rounded-lg flex items-center justify-center shrink-0 ${
+                isUser 
+                  ? "bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/25" 
+                  : "bg-slate-800/80 border border-purple-500/20 text-purple-400 backdrop-blur-sm"
               }`}>
-                {isUser ? <User size={16} /> : <Bot size={16} />}
+                {isUser ? <User size={14} /> : <Bot size={14} />}
               </div>
               
-              <div className={`px-4 py-3 rounded-2xl shadow-xs text-sm leading-relaxed ${
+              <div className={`px-3 sm:px-4 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm leading-relaxed ${
                 isUser 
-                  ? "bg-indigo-600 text-white rounded-tr-none" 
-                  : "bg-white text-slate-800 border border-slate-100 rounded-tl-none prose prose-slate max-w-none"
+                  ? "bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-tr-none shadow-lg shadow-purple-500/20" 
+                  : "bg-slate-800/60 text-slate-200 border border-white/10 rounded-tl-none backdrop-blur-sm prose prose-invert prose-sm max-w-none"
               }`}>
                 {isUser ? (
                   <p className="whitespace-pre-wrap">{msg.content}</p>
@@ -245,14 +247,14 @@ const LearnovaChatbot = () => {
 
         {/* Loading Visual Indicator */}
         {isLoading && (
-          <div className="flex gap-3 max-w-[85%] mr-auto items-center">
-            <div className="p-2 h-9 w-9 rounded-lg bg-white border border-slate-200 text-indigo-600 flex items-center justify-center animate-pulse">
-              <Bot size={16} />
+          <div className="flex gap-2 sm:gap-3 max-w-[90%] sm:max-w-[85%] mr-auto items-center">
+            <div className="p-1.5 sm:p-2 h-7 w-7 sm:h-9 sm:w-9 rounded-lg bg-slate-800/80 border border-purple-500/20 text-purple-400 flex items-center justify-center animate-pulse backdrop-blur-sm">
+              <Bot size={14} />
             </div>
-<div className="bg-white border border-slate-100 px-4 py-3 rounded-2xl rounded-tl-none flex items-center gap-1.5 shadow-xs">
-  <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-  <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-  <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"></span>
+            <div className="bg-slate-800/60 border border-white/10 px-3 sm:px-4 py-2.5 sm:py-3 rounded-2xl rounded-tl-none flex items-center gap-1.5 backdrop-blur-sm">
+              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-purple-500 rounded-full animate-bounce"></span>
             </div>
           </div>
         )}
@@ -260,8 +262,8 @@ const LearnovaChatbot = () => {
       </main>
 
       {/* Input Form Panel */}
-      <footer className="p-4 bg-white border-t border-slate-200">
-        <form onSubmit={handleSendMessage} className="relative flex items-end gap-2 bg-slate-50 border border-slate-200 rounded-xl p-2 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 transition-all">
+      <footer className="p-2.5 sm:p-4 bg-slate-900/80 backdrop-blur-xl border-t border-purple-500/20">
+        <form onSubmit={handleSendMessage} className="relative flex items-end gap-2 bg-slate-800/60 border border-white/10 rounded-xl p-1.5 sm:p-2 focus-within:border-purple-500/50 focus-within:ring-1 focus-within:ring-purple-500/30 focus-within:shadow-lg focus-within:shadow-purple-500/10 transition-all backdrop-blur-sm">
           <textarea
             ref={textareaRef}
             rows={1}
@@ -274,22 +276,22 @@ const LearnovaChatbot = () => {
               }
             }}
             placeholder={`Ask a question in ${categories.find(c => c.id === activeTab)?.label}...`}
-            className="flex-1 bg-transparent border-0 outline-none resize-none max-h-32 text-sm text-slate-800 pl-2 py-1.5 placeholder-slate-400 focus:ring-0"
+            className="flex-1 bg-transparent border-0 outline-none resize-none max-h-32 text-xs sm:text-sm text-slate-200 pl-2 py-1.5 placeholder-slate-500 focus:ring-0"
           />
           <button
             type="submit"
             disabled={!inputMessage.trim() || isLoading}
-            className={`p-2.5 rounded-lg transition-all ${
+            className={`p-2 sm:p-2.5 rounded-lg transition-all ${
               inputMessage.trim() && !isLoading
-                ? "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
-                : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg hover:shadow-purple-500/25 hover:scale-105"
+                : "bg-slate-700/50 text-slate-500 cursor-not-allowed"
             }`}
           >
-            <Send size={16} />
+            <Send size={14} />
           </button>
         </form>
-        <p className="text-[11px] text-center text-slate-400 mt-2 font-medium">
-          Powered by Groq Cloud API Engine • Shift + Enter for new lines
+        <p className="text-[10px] sm:text-[11px] text-center text-slate-500 mt-1.5 sm:mt-2 font-medium">
+          Powered by Groq Cloud API • Shift + Enter for new lines
         </p>
       </footer>
 
