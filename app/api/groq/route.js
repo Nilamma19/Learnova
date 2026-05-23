@@ -4,6 +4,8 @@ import { checkRateLimit } from "@/lib/rateLimit";
 import { withErrorHandler, authenticateRequest } from "@/lib/error-handler";
 import { AppError, ValidationError } from "@/lib/errors";
 
+export const dynamic = "force-dynamic";
+
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const MAX_MESSAGE_LENGTH = 2000;
 const SYSTEM_PROMPT =

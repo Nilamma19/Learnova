@@ -7,6 +7,8 @@ import {
 
 import { verifyFirebaseToken } from "@/lib/firebase-admin";
 
+export const dynamic = "force-dynamic";
+
 export const rateLimitMap = new Map();
 
 const RATE_LIMIT_WINDOW =

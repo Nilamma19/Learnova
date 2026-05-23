@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { connectDb } from "@/lib/mongodb";
 import { verifyFirebaseToken } from "@/lib/firebase-admin";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request) {
   try {
     const authorization = request.headers.get("authorization");
@@ -11,16 +13,14 @@ export async function GET(request) {
       return NextResponse.json({ error: "No token provided" }, { status: 401 });
     }
 
-    const authResult = await verifyFirebaseToken(token);
+    const decodedToken = await verifyFirebaseToken(token);
 
-    if (!authResult.valid) {
+    if (!decodedToken.valid) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const decodedToken = authResult.decodedToken;
-
     const db = await connectDb();
-    const userId = decodedToken.uid;
+    const userId = decodedToken.decodedToken.uid;
 
     // Fetch student data
     const student = await db.collection("users").findOne({ firebaseUid: userId });

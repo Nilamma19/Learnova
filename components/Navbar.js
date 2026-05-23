@@ -35,9 +35,9 @@ export function Navbar() {
   const [scrollProgress, setScrollProgress] = useState(0);
 
   
-const [notifications, setNotifications] = useState([]);
+const { notifications, markAsRead, markAllAsRead } = useNotifications();
 
-const [unreadCount, setUnreadCount] = useState(0);
+const unreadCount = notifications.filter(n => !n.read).length;
 
   const { user, userProfile, signOut, isAuthenticated } =
     useAuthContext();

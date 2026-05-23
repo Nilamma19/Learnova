@@ -3,6 +3,8 @@ import { connectDb } from "@/lib/mongodb";
 import { verifyFirebaseToken, getUserProfile } from "@/lib/firebase-admin";
 import { jsonError, jsonSuccess } from "@/lib/api-response";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request) {
   try {
     const authorization = request.headers.get("authorization");

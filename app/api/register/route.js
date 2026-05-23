@@ -23,6 +23,8 @@ import { z } from "zod";
 
 import { checkRateLimit } from "@/lib/rateLimit";
 
+export const dynamic = "force-dynamic";
+
 if (
   typeof global !== "undefined" &&
   !global.mockFile

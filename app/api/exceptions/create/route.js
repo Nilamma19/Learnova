@@ -3,6 +3,8 @@ import { verifyFirebaseToken } from "@/lib/firebase-admin";
 import { jsonError, jsonSuccess } from "@/lib/api-response";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(request) {
   try {
     const authorization = request.headers.get("authorization");

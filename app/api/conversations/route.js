@@ -5,12 +5,19 @@ import xss from "xss";
 import { withErrorHandler, authenticateRequest } from "@/lib/error-handler";
 import { AppError, ValidationError } from "@/lib/errors";
 
+// Force dynamic rendering to prevent build-time database connection errors
+export const dynamic = "force-dynamic";
+
+/**
+ * Sanitizes incoming text streams to eliminate malicious script or markup tags 
+ * while maintaining Markdown symbols for UI representation.
+ */
 const sanitizeText = (text) => {
   if (typeof text !== "string") return "";
   return xss(text, {
-    whiteList: {},
+    whiteList: {}, // Strip all standard HTML tags completely
     stripIgnoreTag: true,
-    stripIgnoreTagBody: ["script"],
+    stripIgnoreTagBody: ["script", "style", "iframe", "object", "embed"],
   }).trim();
 };
 
@@ -37,15 +44,10 @@ const conversationSchema = z.object({
 export const POST = withErrorHandler(async (req) => {
   const decodedToken = await authenticateRequest(req);
 
-
-  // Enforce maximum document size (1MB = 1048576 bytes)
-  const contentLength = req.headers.get("content-length");
-  if (contentLength && parseInt(contentLength, 10) > 1024 * 1024) {
-    throw new AppError("Payload too large", 413);
-  }
-
+  // Enforce payload constraint
   const rawText = await req.text();
-  if (Buffer.byteLength(rawText, "utf8") > 1024 * 1024) {
+  const byteLength = new TextEncoder().encode(rawText).length;
+  if (byteLength > 1024 * 1024) {
     throw new AppError("Payload too large", 413);
   }
 
@@ -56,7 +58,6 @@ export const POST = withErrorHandler(async (req) => {
     throw new ValidationError("Invalid JSON payload");
   }
 
-  // Validate using Zod
   const validation = conversationSchema.safeParse(parsedBody);
   if (!validation.success) {
     const firstError = validation.error.issues?.[0]?.message || "Invalid request payload";
@@ -64,10 +65,8 @@ export const POST = withErrorHandler(async (req) => {
   }
 
   const { userMessage, botMessage } = validation.data;
-
   const db = await connectDb();
-  const collection = db.collection("conversations");
-
+  
   const newConversation = {
     userId: decodedToken.uid,
     userEmail: decodedToken.email,
@@ -76,24 +75,21 @@ export const POST = withErrorHandler(async (req) => {
     timestamp: new Date(),
   };
 
-  await collection.insertOne(newConversation);
+  await db.collection("conversations").insertOne(newConversation);
 
   return jsonSuccess(newConversation);
 });
 
 export const GET = withErrorHandler(async (request) => {
   const decodedToken = await authenticateRequest(request);
-
-
   const db = await connectDb();
-  const collection = db.collection("conversations");
 
-  const history = await collection
+  // Sorted by newest first (-1) to fetch recent activity
+  const history = await db.collection("conversations")
     .find({ userId: decodedToken.uid })
-    .sort({ timestamp: 1 })
+    .sort({ timestamp: -1 })
     .limit(50)
     .toArray();
 
-  return jsonSuccess(history);
+  return jsonSuccess(history.reverse());
 });
-
