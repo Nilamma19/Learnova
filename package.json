@@ -31,7 +31,7 @@
     "face-api.js": "^0.22.2",
     "firebase": "^12.2.1",
     "firebase-admin": "^13.5.0",
-    "framer-motion": "^12.23.13",
+    "framer-motion": "^12.40.0",
     "gsap": "^3.13.0",
     "lucide-react": "^0.542.0",
     "mongodb": "^6.19.0",
