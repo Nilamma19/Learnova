@@ -3,6 +3,7 @@ import {
   setDoc,
   doc,
   getDocs,
+  getDoc,
   query,
   serverTimestamp,
   where,
@@ -74,11 +75,8 @@ export async function recordAttendance({
     throw new Error("Attendance cannot be saved without a signed-in user.");
   }
 
-  if (await hasCheckedInToday(userId)) {
-    return { alreadyRecorded: true };
-  }
-
   const todayKey = getTodayKey();
+  const docRef = doc(db, "attendance_records", `${userId}_${todayKey}`);
 
   // INTERCEPT OFFLINE SUBMISSIONS
   if (typeof window !== "undefined" && !navigator.onLine) {
@@ -97,7 +95,15 @@ export async function recordAttendance({
     return { alreadyRecorded: false, newRate: null, queuedOffline: true };
   }
 
-  await setDoc(doc(db, "attendance_records", `${userId}_${todayKey}`), {
+  const existingDoc = await getDoc(docRef);
+
+  if (existingDoc.exists()) {
+    return {
+      alreadyRecorded: true,
+    };
+  }
+
+  await setDoc(docRef, {
     userId,
     studentName,
     email,
