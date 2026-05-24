@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -76,7 +76,7 @@ export default function UniversalSettings() {
   const [hasChanges, setHasChanges] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const getUserInitials = (name) => {
+  const getUserInitials = useCallback((name) => {
     if (!name) return "U";
     return name
       .split(" ")
@@ -84,22 +84,22 @@ export default function UniversalSettings() {
       .join("")
       .toUpperCase()
       .slice(0, 2);
-  };
+  }, []);
 
-  const getUserPhoto = () => {
+  const getUserPhoto = useCallback(() => {
     return user?.photoURL || user?.avatar || null;
-  };
+  }, [user]);
 
-  const getUserDisplayName = () => {
+  const getUserDisplayName = useCallback(() => {
     if (user?.displayName) return user.displayName;
     if (user?.name) return user.name;
     if (user?.email) return user.email.split("@")[0];
     return "User";
-  };
+  }, [user]);
 
-  const getUserEmail = () => {
+  const getUserEmail = useCallback(() => {
     return user?.email || "";
-  };
+  }, [user]);
 
   const getRoleSpecificSettings = () => {
     const role = user?.role || "student";
