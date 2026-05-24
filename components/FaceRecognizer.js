@@ -130,6 +130,7 @@ export default function FaceRecognizer({ authUser }) {
       setFinished(false);
       setAttendanceState("idle");
     } catch (err) {
+      setIsLoading(false);
       if (err.name === "NotAllowedError") {
         setMessage("Camera access is blocked! Enable camera permissions in browser settings.");
       } else {
