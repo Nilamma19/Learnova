@@ -9,7 +9,7 @@ import {
   signOut,
   deleteUser,
 } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import {
   createUserProfile,
   getErrorMessage,
@@ -61,10 +61,26 @@ export const loginWithEmail = async (email, password, selectedRole) => {
         };
       }
 
-      // Update last login
-      await setDoc(doc(db, "users", user.uid), {
-        ...userData,
+      // Update last login — use updateDoc to avoid overwriting the
+      // entire document (including role) with potentially stale data
+      await updateDoc(doc(db, "users", user.uid), {
         lastLogin: new Date(),
+      });
+
+      // Migrate existing users to have cryptographically signed custom
+      // claims.  Fire-and-forget — the login succeeds regardless.
+      user.getIdToken().then((token) => {
+        fetch("/api/auth/set-role", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            role: userData.role,
+            fullName: userData.fullName || "",
+          }),
+        }).catch(() => {});
       });
 
       return { success: true, userData };
@@ -216,9 +232,24 @@ export const loginWithGoogle = async (
 
     // Update last login for existing users
     if (userData) {
-      await setDoc(doc(db, "users", user.uid), {
-        ...userData,
+      await updateDoc(doc(db, "users", user.uid), {
         lastLogin: new Date(),
+      });
+
+      // Migrate existing users to have cryptographically signed custom
+      // claims.  Fire-and-forget — the login succeeds regardless.
+      user.getIdToken().then((token) => {
+        fetch("/api/auth/set-role", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            role: userData.role,
+            fullName: userData.fullName || "",
+          }),
+        }).catch(() => {});
       });
     }
 
