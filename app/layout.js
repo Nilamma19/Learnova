@@ -17,7 +17,7 @@ import BackToTop from "@/components/ui/BackToTop";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import ScrollProgress from "@/components/ui/ScrollProgress";
 import NextTopLoader from "nextjs-toploader";
-
+import RouteAnnouncer from "@/components/RouteAnnouncer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -273,6 +273,7 @@ export default function RootLayout({ children }) {
                   <Footer />
                   <ClientLayout />
                   <BackToTop />
+                  <RouteAnnouncer />
 
                   <Toaster
                     position="top-right"
