@@ -42,13 +42,18 @@ export default function AttendanceHeatmap() {
   const monthKey = `${currentDate.getFullYear()}-${String(
     currentDate.getMonth() + 1
   ).padStart(2, "0")}`;
-
   const fetchAttendance = useCallback(async () => {
     if (!user?.uid) return;
     setIsLoading(true);
     try {
+      const token = await user.getIdToken();
       const res = await fetch(
-        `/api/attendance/heatmap?userId=${user.uid}&month=${monthKey}`
+        `/api/attendance/heatmap?userId=${user.uid}&month=${monthKey}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
       const data = await res.json();
       const map = {};
@@ -61,7 +66,7 @@ export default function AttendanceHeatmap() {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.uid, monthKey]);
+  }, [user, monthKey]);
 
   useEffect(() => {
     fetchAttendance();
