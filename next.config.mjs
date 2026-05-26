@@ -28,6 +28,8 @@ const withPWA = withPWAInit({
             },
           ],
         },
+      },
+      {
         urlPattern: /\/api\/.*/i,
         handler: "NetworkOnly",
       },

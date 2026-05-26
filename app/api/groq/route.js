@@ -18,8 +18,9 @@ export const POST = withErrorHandler(async (request) => {
 
   // Parse body (Max 10KB)
   const body = await parseJSON(request, 1024 * 10);
-  const validation = validateGroqBody(body);
 
+  // Validate body using the library validator
+  const validation = validateGroqBody(body);
   const trimmedMessage = validation.trimmedMessage;
 
   // Check for prompt injection
@@ -29,16 +30,11 @@ export const POST = withErrorHandler(async (request) => {
     return jsonError("Safety check: System instructions override or prompt injection attempt detected.", 400);
   }
 
-  // Sanitize and call Groq
+  // Sanitize user message
   const sanitizedMessage = sanitizeMessage(trimmedMessage);
-  
-  try {
-    const content = await callGroq(sanitizedMessage);
-    return jsonSuccess({ message: content });
-  } catch (error) {
-    if (error.name === "AbortError" || error.status === 504) {
-      return jsonError("Gateway Timeout: Groq did not respond in time.", 504);
-    }
-    throw error;
-  }
+
+  // Call Groq
+  const content = await callGroq(sanitizedMessage);
+
+  return jsonSuccess({ message: content });
 });
