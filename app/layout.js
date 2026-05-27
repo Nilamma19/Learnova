@@ -14,7 +14,7 @@ import AllProviders from "./providers/AllProviders";
 import { metadata } from "@/lib/seo/siteMetadata";
 import { siteStructuredData } from "@/lib/seo/siteStructuredData";
 import NextTopLoader from "nextjs-toploader";
-
+import RouteAnnouncer from "@/components/RouteAnnouncer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -92,6 +92,7 @@ export default function RootLayout({ children }) {
             <Footer />
             <ClientLayout />
             <BackToTop />
+            <RouteAnnouncer />
 
             <Toaster
               position="top-right"

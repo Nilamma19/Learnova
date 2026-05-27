@@ -73,7 +73,7 @@ function NavLink({ href, label, isActive }) {
     <Link
       href={href}
       aria-current={isActive ? "page" : undefined}
-      className="relative text-sm font-semibold tracking-wide px-4 py-2 rounded-xl transition-colors duration-300 ease-out group"
+      className="relative text-sm font-semibold tracking-wide px-4 py-2 rounded-xl group after:content-[''] after:absolute after:bottom-1 after:left-3 after:right-3 after:h-[3px] after:rounded-full after:bg-gradient-to-r after:from-blue-500 after:via-cyan-400 after:to-violet-500 after:shadow-sm after:shadow-blue-500/30 after:pointer-events-none after:will-change-transform after:origin-left after:transition-transform after:duration-300 after:ease-[cubic-bezier(0.4,0,0.2,1)] after:scale-x-0 group-hover:after:scale-x-100"
     >
       {isActive && (
         <motion.span
@@ -82,19 +82,13 @@ function NavLink({ href, label, isActive }) {
           transition={{ type: "spring", bounce: 0.2, duration: 0.45 }}
         />
       )}
-      <span className="absolute inset-0 rounded-xl bg-zinc-200/0 group-hover:bg-zinc-200/60 dark:group-hover:bg-white/5 transition-colors duration-300 ease-out" />
-      <span className={`relative z-10 ${isActive
+      <span className="absolute inset-0 rounded-xl bg-zinc-200/60 dark:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out" />
+      <span className={`relative z-10 transition-colors duration-300 ${isActive
           ? "text-blue-600 dark:text-blue-400"
           : "text-zinc-700 dark:text-zinc-300 group-hover:text-blue-600 dark:group-hover:text-blue-300"
         }`}>
         {label}
       </span>
-      <span
-        className={`absolute bottom-1 left-3 right-3 h-[3px] origin-center rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-violet-500 shadow-sm shadow-blue-500/30 transition-all duration-300 ease-out ${isActive
-            ? "scale-x-100 opacity-100"
-            : "scale-x-0 opacity-0 group-hover:scale-x-100 group-hover:opacity-90"
-          }`}
-      />
     </Link>
   );
 }
@@ -368,34 +362,16 @@ export function Navbar() {
                       className={iconBtn}
                       aria-label="Notifications"
                     >
-
-                      <Bell className="h-5 w-5" />
-                      {unreadCount > 0 && <span className="absolute top-2 right-2 bg-red-500 rounded-full h-2 w-2" />}
+                      <Bell className="h-[18px] w-[18px]" />
+                      <AnimatePresence>
+                        {unreadCount > 0 && (
+                          <motion.span
+                            initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
+                            className="absolute top-1.5 right-1.5 bg-red-500 rounded-full h-2 w-2 ring-2 ring-white dark:ring-zinc-950"
+                          />
+                        )}
+                      </AnimatePresence>
                     </motion.button>
-
-                    {isNotificationOpen && (
-                      <div className="absolute right-0 mt-3 w-72 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl z-[80] overflow-hidden">
-                        <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-zinc-50 dark:bg-zinc-900/50">
-                          <h3 className="text-zinc-900 dark:text-zinc-100 font-bold text-sm">Notifications</h3>
-                          {unreadCount > 0 && (
-                            <button onClick={markAllAsRead} aria-label="Mark all notifications as read" className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline">
-                              Mark all as read
-                            </button>
-                          )}
-                        </div>
-                        <div className="max-h-60 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-900">
-                          {notifications.length === 0 ? (
-                            <div className="p-4 text-center text-sm text-zinc-400">No new notices</div>
-                          ) : (
-                            notifications.map((n) => (
-                              <div key={n.id} onClick={() => markAsRead(n.id)} className={`p-3 text-left cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/40 ${!n.read ? "bg-blue-50/30" : ""}`}>
-                                <p className="text-sm text-zinc-800 dark:text-zinc-200 line-clamp-2">{n.message}</p>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    )}
 
                     <AnimatePresence>
                       {isNotificationOpen && (
@@ -451,36 +427,19 @@ export function Navbar() {
                       aria-label="Toggle profile menu"
                     >
                       <div className="relative w-7 h-7 shrink-0">
-                        {getUserPhoto() ? (
+                        {getUserPhoto() && (
                           <Image
                             src={getUserPhoto()} alt={`${getUserDisplayName()} profile photo`}
                             width={28} height={28}
                             className="rounded-full object-cover ring-2 ring-blue-500/30"
                             onError={handleImageError}
                           />
-                        ) : (
-                          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold">
-                            {getUserInitials(getUserDisplayName())}
-                          </div>
                         )}
+                        <div className="fallback-avatar absolute inset-0 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold" style={{ display: getUserPhoto() ? "none" : "flex" }}>
+                          {getUserInitials(getUserDisplayName())}
+                        </div>
                         <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 bg-emerald-400 rounded-full ring-2 ring-white dark:ring-zinc-950" />
                       </div>
-
-                      <ChevronDown className="h-4 w-4 text-zinc-400" />
-
-                    {isDropdownOpen && (
-                      <div className="absolute right-0 mt-3 w-48 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl py-1 z-[80]">
-                        {userMenuItems.map((item) => (
-                          <Link key={item.key} href={item.href} onClick={() => setIsDropdownOpen(false)} className="flex items-center px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">
-                            <item.icon className="h-4 w-4 mr-2.5 text-zinc-400" /> {item.label}
-                          </Link>
-                        ))}
-                        <hr className="my-1 border-zinc-100 dark:border-zinc-900" />
-                        <button onClick={handleLogout} aria-label="Logout" className="w-full flex items-center px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors">
-                          <LogOut className="h-4 w-4 mr-2.5" /> Logout
-                        </button>
-                      </div>
-                    )}
 
                       <span className="text-sm font-medium text-zinc-700 dark:text-zinc-200 hidden md:inline max-w-[80px] truncate">
                         {getUserDisplayName().split(" ")[0]}
@@ -628,13 +587,12 @@ export function Navbar() {
               {isAuthenticated && (
                 <div className="flex items-center gap-3 p-2.5 bg-zinc-50/60 dark:bg-white/4 rounded-xl border border-zinc-100/60 dark:border-white/6">
                   <div className="relative w-9 h-9 shrink-0">
-                    {getUserPhoto() ? (
+                    {getUserPhoto() && (
                       <Image src={getUserPhoto()} alt={`${getUserDisplayName()} profile photo`} width={36} height={36} className="rounded-full object-cover" onError={handleImageError} />
-                    ) : (
-                      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold">
-                        {getUserInitials(getUserDisplayName())}
-                      </div>
                     )}
+                    <div className="fallback-avatar absolute inset-0 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold" style={{ display: getUserPhoto() ? "none" : "flex" }}>
+                      {getUserInitials(getUserDisplayName())}
+                    </div>
                     <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 bg-emerald-400 rounded-full ring-2 ring-white dark:ring-zinc-950" />
                   </div>
                   <div className="min-w-0">

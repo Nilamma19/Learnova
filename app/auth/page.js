@@ -43,6 +43,7 @@ const [email, setEmail] = useState("");
 const [password, setPassword] = useState("");
 const [fullName, setFullName] = useState("");
 const [instituteName, setInstituteName] = useState("");
+const [inviteCode, setInviteCode] = useState("");
 
 // UI state
 const [isLoading, setIsLoading] = useState(false);
@@ -76,98 +77,77 @@ setEmail("");
 setPassword("");
 setFullName("");
 setInstituteName("");
+setInviteCode("");
 };
 
 const handleToggleLogin = () => {
 setIsLogin(!isLogin);
 setErrors({});
 setPassword("");
-
-```
-if (!isLogin) {
-  setFullName("");
-  setInstituteName("");
-}
-```
+  if (!isLogin) {
+    setFullName("");
+    setInstituteName("");
+    setInviteCode("");
+  }
 
 };
 
 const handleSubmit = async (e) => {
 e.preventDefault();
+  const formData = {
+    selectedRole,
+    email,
+    password,
+    fullName,
+    instituteName,
+    inviteCode,
+  };
 
-```
-const formData = {
-  selectedRole,
-  email,
-  password,
-  fullName,
-  instituteName,
-};
+  const { isValid, errors: validationErrors } = validateForm(formData, isLogin);
 
-const { isValid, errors: validationErrors } = validateForm(
-  formData,
-  isLogin
-);
-
-if (!isValid) {
-  setErrors(validationErrors);
-  return;
-}
-
-setIsLoading(true);
-setErrors({});
-
-try {
-  let result;
-
-  if (isLogin) {
-    result = await loginWithEmail(email, password, selectedRole);
-  } else {
-    result = await signupWithEmail(email, password, selectedRole, {
-      fullName,
-      instituteName,
-    });
+  if (!isValid) {
+    setErrors(validationErrors);
+    return;
   }
 
-  if (result.needsVerification) {
-    toast.success("Verification email sent! Please check your inbox.");
-    setShowRoleSelection(true);
-    router.push("/verify");
-  } else if (result.needsProfile) {
-    toast.success("Account created successfully!");
-    setShowRoleSelection(true);
-    router.push("/profile");
-  } else if (result.success) {
-    toast.success(
-      isLogin
-        ? "Successfully logged in!"
-        : "Account created successfully!"
-    );
+  setIsLoading(true);
+  setErrors({});
 
-    setShowRoleSelection(true);
-    redirectBasedOnRole(result.userData.role, router);
-  } else {
-    toast.error(
-      result.error || "Authentication failed. Please try again."
-    );
+  try {
+    let result;
 
-    setErrors({
-      submit: result.error || "Something went wrong. Please try again.",
-    });
+    if (isLogin) {
+      result = await loginWithEmail(email, password, selectedRole);
+    } else {
+      result = await signupWithEmail(email, password, selectedRole, {
+        fullName,
+        instituteName,
+        inviteCode,
+      });
+    }
+
+    if (result.needsVerification) {
+      toast.success("Verification email sent! Please check your inbox.");
+      setShowRoleSelection(true);
+      router.push("/verify");
+    } else if (result.needsProfile) {
+      toast.success("Account created successfully!");
+      setShowRoleSelection(true);
+      router.push("/profile");
+    } else if (result.success) {
+      toast.success(isLogin ? "Successfully logged in!" : "Account created successfully!");
+      setShowRoleSelection(true);
+      redirectBasedOnRole(result.userData.role, router);
+    } else {
+      toast.error(result.error || "Authentication failed. Please try again.");
+      setErrors({ submit: result.error || "Something went wrong. Please try again." });
+    }
+  } catch (err) {
+    toast.error("Authentication failed. Please verify your credentials and try again.");
+    setErrors({ submit: "Authentication failed. Please verify your credentials and try again." });
+  } finally {
+    setIsLoading(false);
   }
-} catch (err) {
-  toast.error(
-    "Authentication failed. Please verify your credentials and try again."
-  );
-
-  setErrors({
-    submit:
-      "Authentication failed. Please verify your credentials and try again.",
-  });
-} finally {
-  setIsLoading(false);
-}
-```
 
 };
 
@@ -177,7 +157,7 @@ setErrors({ role: "Please select your role first" });
 return;
 }
 
-```
+
 if (
   !isLogin &&
   selectedRole === USER_ROLES.INSTITUTE &&
@@ -223,8 +203,6 @@ try {
 } finally {
   setIsLoading(false);
 }
-```
-
 };
 
 const handleForgotPassword = async (emailToReset) => {
@@ -232,42 +210,30 @@ if (!emailToReset) {
 setErrors({ forgotEmail: "Please enter your email address" });
 return;
 }
-
-```
-if (!/\S+@\S+\.\S+/.test(emailToReset)) {
-  setErrors({ forgotEmail: "Please enter a valid email address" });
-  return;
-}
-
-setIsLoading(true);
-setErrors({});
-
-try {
-  const result = await resetPassword(emailToReset);
-
-  if (result.success) {
-    toast.success(
-      "Password reset email sent! Check your inbox and spam folder."
-    );
-
-    setShowForgotPassword(false);
-    setForgotPasswordEmail("");
-  } else {
-    setErrors({ forgotEmail: result.error });
+  if (!/\S+@\S+\.\S+/.test(emailToReset)) {
+    setErrors({ forgotEmail: "Please enter a valid email address" });
+    return;
   }
-} catch (err) {
-  toast.error(
-    "Password reset failed. Please verify your email and try again."
-  );
 
-  setErrors({
-    forgotEmail:
-      "Password reset failed. Please verify your email and try again.",
-  });
-} finally {
-  setIsLoading(false);
-}
-```
+  setIsLoading(true);
+  setErrors({});
+
+  try {
+    const result = await resetPassword(emailToReset);
+
+    if (result.success) {
+      toast.success("Password reset email sent! Check your inbox and spam folder.");
+      setShowForgotPassword(false);
+      setForgotPasswordEmail("");
+    } else {
+      setErrors({ forgotEmail: result.error });
+    }
+  } catch (err) {
+    toast.error("Password reset failed. Please verify your email and try again.");
+    setErrors({ forgotEmail: "Password reset failed. Please verify your email and try again." });
+  } finally {
+    setIsLoading(false);
+  }
 
 };
 
@@ -277,13 +243,14 @@ setForgotPasswordEmail(email);
 setErrors({});
 };
 
-return ( <div className="min-h-screen pt-10 bg-background"> <Navbar />
+return (
+  <div className="min-h-screen pt-10 bg-background">
+    <Navbar />
 
-```
-  <div className="relative overflow-hidden">
-    <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/10 to-purple-600/10"></div>
+    <div className="relative overflow-hidden">
+      <div className="absolute inset-0 bg-linear-to-r from-indigo-600/10 to-purple-600/10"></div>
 
-    <div className="relative min-h-[98vh] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-10">
+      <div className="relative min-h-[98vh] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-10">
 
       {showRoleSelection ? (
         <div className="flex justify-center items-center">
@@ -309,6 +276,8 @@ return ( <div className="min-h-screen pt-10 bg-background"> <Navbar />
                   setFullName={setFullName}
                   instituteName={instituteName}
                   setInstituteName={setInstituteName}
+                  inviteCode={inviteCode}
+                  setInviteCode={setInviteCode}
                   errors={errors}
                   setErrors={setErrors}
                   isLoading={isLoading}

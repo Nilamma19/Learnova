@@ -201,15 +201,28 @@ export async function middleware(request) {
 
   // ── 5. Role-protected dashboard routes ──
   const protectedDashboards = [
-    { prefix: "/student", role: "student", defaultPath: "/student/dashboard" },
-    { prefix: "/teacher", role: "teacher", defaultPath: "/teacher/dashboard" },
-    { prefix: "/admin", role: "admin", defaultPath: "/admin/dashboard" },
-    { prefix: "/institute", role: "institute", defaultPath: "/institute/dashboard" },
+    { prefix: "/student", apiPrefix: "/api/student", role: "student", defaultPath: "/student/dashboard" },
+    { prefix: "/teacher", apiPrefix: "/api/teacher", role: "teacher", defaultPath: "/teacher/dashboard" },
+    { prefix: "/admin", apiPrefix: "/api/admin", role: "admin", defaultPath: "/admin/dashboard" },
+    { prefix: "/institute", apiPrefix: "/api/institute", role: "institute", defaultPath: "/institute/dashboard" },
   ];
 
   const matchedDashboard = protectedDashboards.find((dashboard) =>
-    pathname.startsWith(dashboard.prefix)
+    pathname.startsWith(dashboard.prefix) ||
+    (dashboard.apiPrefix && pathname.startsWith(dashboard.apiPrefix))
   );
+
+  // General API route protection (non-dashboard routes under /api/)
+  if (pathname.startsWith("/api/") && pathname !== "/api/check-groq-config") {
+    if (!matchedDashboard) {
+      if (!isTokenValid) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      if (!isEmailVerified) {
+        return NextResponse.json({ error: "Forbidden: Email not verified" }, { status: 403 });
+      }
+    }
+  }
 
   if (matchedDashboard) {
     if (!isTokenValid) {
@@ -219,6 +232,9 @@ export async function middleware(request) {
       return NextResponse.redirect(new URL("/auth", request.url));
     }
     if (!isEmailVerified) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Forbidden: Email not verified" }, { status: 403 });
+      }
       return NextResponse.redirect(new URL("/verify", request.url));
     }
     if (userRole !== matchedDashboard.role) {
