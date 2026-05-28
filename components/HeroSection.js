@@ -5,6 +5,14 @@ import { usePathname } from "next/navigation";
 
 export default function HeroSection({ selectedRole }) {
   const pathname = usePathname();
+  const [focusedIndex, setFocusedIndex] = window.useState ? window.useState(-1) : [-1, () => {}]; 
+  // (Note: To keep this simple without extra imports, we can use React's built-in hooks)
+  
+  const cardRefs = [
+    window.useRef ? window.useRef(null) : null,
+    window.useRef ? window.useRef(null) : null,
+    window.useRef ? window.useRef(null) : null
+  ];
 
   return (
     <div>
@@ -47,7 +55,7 @@ export default function HeroSection({ selectedRole }) {
       <div className="grid gap-6 mb-8">
         
         {/* Card 1 */}
-        <div className="p-6 bg-card backdrop-blur-sm rounded-xl border border-border">
+        <div tabIndex="0" className="feature-card p-6 bg-card backdrop-blur-sm rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-indigo-500">
           <Shield className="w-12 h-12 text-indigo-400 mb-4" />
           <h3 className="font-semibold text-foreground mb-2">
             Enterprise Security
@@ -58,7 +66,7 @@ export default function HeroSection({ selectedRole }) {
         </div>
 
         {/* Card 2 */}
-        <div className="p-6 bg-card backdrop-blur-sm rounded-xl border border-border">
+        <div tabIndex="0" className="feature-card p-6 bg-card backdrop-blur-sm rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-indigo-500">
           <Zap className="w-12 h-12 text-purple-400 mb-4" />
           <h3 className="font-semibold text-foreground mb-2">
             Lightning Fast
@@ -69,7 +77,7 @@ export default function HeroSection({ selectedRole }) {
         </div>
 
         {/* Card 3 */}
-        <div className="p-6 bg-card backdrop-blur-sm rounded-xl border border-border">
+        <div tabIndex="0" className="feature-card p-6 bg-card backdrop-blur-sm rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-indigo-500">
           <Sparkles className="w-12 h-12 text-indigo-400 mb-4" />
           <h3 className="font-semibold text-foreground mb-2">
             Role-Based Access

@@ -278,6 +278,25 @@ export default function UniversalProfile() {
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
 
+    // 1. Explicitly check for allowed image types (.jpg, .jpeg, .png, .webp)
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error(
+        "Invalid file type. Only .jpg, .jpeg, .png, and .webp are supported."
+      );
+      e.target.value = ""; // Clear the file input registry cleanly
+      return;
+    }
+
+    // 2. Reduce restriction boundary down to a strict 2MB limit
+    const MAX_SIZE = 2 * 1024 * 1024; 
+
+    if (file.size > MAX_SIZE) {
+      toast.error(
+        "File too large. Maximum image size allowed is 2MB."
+      );
+      e.target.value = ""; // Clear the file input registry cleanly
+      return;
     if (!file) return;
 
    
@@ -356,6 +375,7 @@ export default function UniversalProfile() {
 
       if (!detection) {
         toast.error("Could not detect a clear face. Please upload a clear headshot photo.", { id: detectToast });
+        e.target.value = ""; // ✨ Added: Clears the file input registry cleanly
         handleCancelPreview();
         return;
       }
@@ -365,6 +385,7 @@ export default function UniversalProfile() {
     } catch (err) {
       console.error("Face detection error during profile update:", err);
       toast.error("Error analyzing image file. Please ensure it is a valid face image.", { id: detectToast });
+      e.target.value = ""; // ✨ Added: Clears the input if face-api throws an unhandled error
       handleCancelPreview();
       return;
     }

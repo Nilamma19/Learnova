@@ -70,6 +70,7 @@ import { AttendancePasscodeModal } from "./dashboard/AttendancePasscodeModal";
 import { ExceptionRequestsList } from "./dashboard/ExceptionRequestsList";
 import { db } from "@/lib/firebaseConfig";
 import { collection, getDocs, query, where, onSnapshot, doc, getDoc } from "firebase/firestore";
+import AnalyticsSkeleton from "./AnalyticsSkeleton";
 import { getTodayKeyLocal } from "@/lib/dateUtils";
 
 const AttendanceTrendsChart = dynamic(
@@ -259,6 +260,7 @@ const TeacherDashboard = () => {
         }
       } catch (error) {
         console.error("Error fetching schedule, falling back to mock:", error);
+        toast.error("Could not load your schedule. Showing sample data instead.");
       }
       
       // Fallback Mock Schedule

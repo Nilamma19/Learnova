@@ -324,6 +324,7 @@ export default function Contact() {
                           value={formData.name}
                           onChange={handleInputChange}
                           placeholder="Enter your full name"
+                          maxLength={100}
                           className="w-full p-4 bg-background border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent/50 transition-colors duration-300"
                         />
                         <div className="min-h-5">
@@ -346,6 +347,7 @@ export default function Contact() {
                           value={formData.email}
                           onChange={handleInputChange}
                           placeholder="you@example.com"
+                          maxLength={254}
                           className="w-full p-4 bg-background border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent/50 transition-colors duration-300"
                         />
                         <div className="min-h-5">
@@ -384,6 +386,7 @@ export default function Contact() {
                         onChange={handleInputChange}
                         rows="5"
                         placeholder="Tell us about your needs and how we can help..."
+                        maxLength={1000}
                         className="w-full p-4 bg-background border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent/50 transition-colors duration-300 resize-none"
                       />
                       {errors.message && (

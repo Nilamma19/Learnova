@@ -168,8 +168,8 @@ export async function middleware(request) {
   if (!authToken) {
     authToken = request.cookies.get("authToken")?.value;
   }
-
-  // ── 4. Token verification ──
+  
+  // Cryptographically verify the token — decoding alone is not sufficient
   let isTokenValid = false;
   let isEmailVerified = false;
   let userRole = null;
@@ -179,23 +179,7 @@ export async function middleware(request) {
     if (payload) {
       isTokenValid = true;
       isEmailVerified = !!payload.email_verified;
-
-      if (payload.role) {
-        userRole = payload.role;
-      } else if (FIREBASE_PROJECT_ID) {
-        try {
-          const res = await fetch(
-            `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${payload.sub}`,
-            { headers: { Authorization: `Bearer ${authToken}` } }
-          );
-          if (res.ok) {
-            const data = await res.json();
-            userRole = data.fields?.role?.stringValue || null;
-          }
-        } catch (err) {
-          console.error("Middleware Edge fetch failed:", err);
-        }
-      }
+      userRole = payload.role || null;
     }
   }
 

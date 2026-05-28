@@ -193,11 +193,8 @@ export const signupWithEmail = async (
  * @param {Object} additionalData - Additional profile information.
  * @returns {Promise<Object>} Authentication result and user data.
  */
-export const loginWithGoogle = async (
-  selectedRole,
-  isLogin,
-  additionalData = {},
-) => {
+
+export const loginWithGoogle = async (selectedRole, isLogin, additionalData) => {
   try {
     if (!auth || !db) {
       return { success: false, error: FIREBASE_CONFIG_ERROR };
@@ -206,24 +203,25 @@ export const loginWithGoogle = async (
     const provider = new GoogleAuthProvider();
     const userCredential = await signInWithPopup(auth, provider);
     const user = userCredential.user;
-
-    // Check if user profile exists
+    
+    // Get user profile to check role
     const userDoc = await getDoc(doc(db, "users", user.uid));
-
     if (!userDoc.exists()) {
       if (isLogin) {
-        // New Google user trying to login - need to sign up first
-        // ✅ modular style
         await signOut(auth);
         return {
           success: false,
           error: "Account not found. Please sign up first.",
         };
       } else {
-        // New Google user signing up - create profile with selected role
-        const nameToUse = user.displayName || additionalData.fullName?.trim();
+        // Create user profile with role for new Google sign-ups
+        const nameToUse = 
+          user.displayName?.trim() || 
+          additionalData.fullName?.trim() || 
+          user.email?.split("@")[0] || 
+          "Learnova Member";
+
         if (!nameToUse) {
-          // Clean up orphaned account via server-side endpoint
           console.error(`[google-signup] No name provided for user ${user.uid}, initiating cleanup`);
           try {
             await fetch("/api/auth/cleanup", {
@@ -234,7 +232,7 @@ export const loginWithGoogle = async (
           } catch (cleanupErr) {
             console.error(`[google-signup] Cleanup failed for orphaned account ${user.uid}:`, cleanupErr.message);
           }
-          
+
           await signOut(auth);
           return {
             success: false,
@@ -243,15 +241,10 @@ export const loginWithGoogle = async (
         }
 
         try {
-          await createUserProfile(user, selectedRole, {
-            ...additionalData,
-            fullName: nameToUse,
-          });
-          // Force refresh the token to immediately acquire the new custom claims (role) on the client side
-          await user.getIdToken(true);
+          await createUserProfile(user, selectedRole, {...additionalData, fullName: nameToUse });
+          await user.getIdToken(true)
         } catch (profileError) {
-          // Clean up orphaned account via server-side endpoint
-          console.error(`[google-signup] Profile creation failed for user ${user.uid}, initiating cleanup`);
+          console.error(`[google-signup] Profile creation failed for user ${user.uid}, initiating cleanup`, profileError.message);
           try {
             await fetch("/api/auth/cleanup", {
               method: "POST",
@@ -261,13 +254,10 @@ export const loginWithGoogle = async (
           } catch (cleanupErr) {
             console.error(`[google-signup] Cleanup failed for orphaned account ${user.uid}:`, cleanupErr.message);
           }
-          
           throw profileError;
         }
-
-        // Email is already verified with Google
         return { success: true, userData: { role: selectedRole } };
-      }
+        }
     }
 
     const userData = userDoc.data();
@@ -289,8 +279,7 @@ export const loginWithGoogle = async (
         lastLogin: new Date(),
       });
 
-      // Migrate existing users to have cryptographically signed custom
-      // claims.  Fire-and-forget — the login succeeds regardless.
+      // Sync custom claims for existing users to ensure they have the correct role in their token
       void syncCustomClaims({
         user,
         role: userData.role,
@@ -311,6 +300,7 @@ export const loginWithGoogle = async (
     };
   }
 };
+      
 
 /**
  * Triggers a password reset email via the secure backend API route.
