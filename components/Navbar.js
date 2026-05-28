@@ -10,6 +10,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { useTheme } from "next-themes";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
+import ThemeToggle from "@/components/ThemeToggle";
 
 import {
   Menu,
@@ -73,7 +74,7 @@ function NavLink({ href, label, isActive }) {
     <Link
       href={href}
       aria-current={isActive ? "page" : undefined}
-      className="relative text-sm font-semibold tracking-wide px-4 py-2 rounded-xl transition-colors duration-300 ease-out group"
+      className="relative text-sm font-semibold tracking-wide px-4 py-2 rounded-xl group after:content-[''] after:absolute after:bottom-0 after:left-3 after:right-3 after:h-[3px] after:rounded-full after:bg-gradient-to-r after:from-blue-500 after:via-cyan-400 after:to-violet-500 after:shadow-sm after:shadow-blue-500/30 after:pointer-events-none after:will-change-transform after:origin-left after:transition-transform after:duration-300 after:ease-[cubic-bezier(0.4,0,0.2,1)] after:scale-x-0 group-hover:after:scale-x-100"
     >
       {isActive && (
         <motion.span
@@ -82,19 +83,13 @@ function NavLink({ href, label, isActive }) {
           transition={{ type: "spring", bounce: 0.2, duration: 0.45 }}
         />
       )}
-      <span className="absolute inset-0 rounded-xl bg-zinc-200/0 group-hover:bg-zinc-200/60 dark:group-hover:bg-white/5 transition-colors duration-300 ease-out" />
-      <span className={`relative z-10 ${isActive
+      <span className="absolute inset-0 rounded-xl bg-zinc-200/60 dark:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out" />
+      <span className={`relative z-10 transition-colors duration-300 ${isActive
           ? "text-blue-600 dark:text-blue-400"
           : "text-zinc-700 dark:text-zinc-300 group-hover:text-blue-600 dark:group-hover:text-blue-300"
         }`}>
         {label}
       </span>
-      <span
-        className={`absolute bottom-1 left-3 right-3 h-[3px] origin-center rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-violet-500 shadow-sm shadow-blue-500/30 transition-all duration-300 ease-out ${isActive
-            ? "scale-x-100 opacity-100"
-            : "scale-x-0 opacity-0 group-hover:scale-x-100 group-hover:opacity-90"
-          }`}
-      />
     </Link>
   );
 }
@@ -335,20 +330,9 @@ export function Navbar() {
               </motion.button>
 
               {/* Theme Toggle */}
-              {mounted && (
-                <motion.button
-                  whileHover={{ scale: 1.08, rotate: isDark ? 20 : -20 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => setTheme(isDark ? "light" : "dark")}
-                  className={iconBtn}
-                  aria-label="Toggle theme"
-                >
-                  {isDark
-                    ? <Sun className="h-4 w-4 text-amber-400" />
-                    : <Moon className="h-4 w-4" />
-                  }
-                </motion.button>
-              )}
+              <div className="flex items-center">
+                <ThemeToggle />
+              </div>
 
               {/* Auth Area */}
               {loading ? (
@@ -413,6 +397,7 @@ export function Navbar() {
                         </motion.div>
                       )}
                     </AnimatePresence>
+
                   </div>
 
                   {/* Profile Dropdown */}
@@ -432,20 +417,20 @@ export function Navbar() {
                       aria-label="Toggle profile menu"
                     >
                       <div className="relative w-7 h-7 shrink-0">
-                        {getUserPhoto() ? (
+                        {getUserPhoto() && (
                           <Image
                             src={getUserPhoto()} alt={`${getUserDisplayName()} profile photo`}
                             width={28} height={28}
                             className="rounded-full object-cover ring-2 ring-blue-500/30"
                             onError={handleImageError}
                           />
-                        ) : (
-                          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold">
-                            {getUserInitials(getUserDisplayName())}
-                          </div>
                         )}
+                        <div className="fallback-avatar absolute inset-0 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold" style={{ display: getUserPhoto() ? "none" : "flex" }}>
+                          {getUserInitials(getUserDisplayName())}
+                        </div>
                         <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 bg-emerald-400 rounded-full ring-2 ring-white dark:ring-zinc-950" />
                       </div>
+
                       <span className="text-sm font-medium text-zinc-700 dark:text-zinc-200 hidden md:inline max-w-[80px] truncate">
                         {getUserDisplayName().split(" ")[0]}
                       </span>
@@ -496,24 +481,43 @@ export function Navbar() {
                         </motion.div>
                       )}
                     </AnimatePresence>
+
                   </div>
                 </div>
               ) : (
-                /* Login Button */
-                <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} className="relative group">
-                  <span className="absolute inset-0 rounded-xl bg-blue-500 opacity-0 group-hover:opacity-20 blur-lg transition-opacity duration-300" />
-                  <Button
-                    asChild
-                    size="default"
-                    className="relative bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-semibold rounded-xl px-5 h-9 text-sm shadow-md shadow-blue-600/25 border border-blue-500/30 transition-all duration-200"
-                  >
-                    <Link href="/auth">
-                      <span className="flex items-center gap-1.5">
-                        Login <Sparkles className="h-3.5 w-3.5 text-blue-200" />
-                      </span>
-                    </Link>
-                  </Button>
-                </motion.div>
+                <div className="flex items-center gap-2">
+                  {/* Login Button */}
+                  <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} className="relative group">
+                    <span className="absolute inset-0 rounded-xl bg-blue-500 opacity-0 group-hover:opacity-20 blur-lg transition-opacity duration-300" />
+                    <Button
+                      asChild
+                      size="default"
+                      className="relative bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-semibold rounded-xl px-5 h-9 text-sm shadow-md shadow-blue-600/25 border border-blue-500/30 transition-all duration-200"
+                    >
+                      <Link href="/auth">
+                        <span className="flex items-center gap-1.5">
+                          Login <Sparkles className="h-3.5 w-3.5 text-blue-200" />
+                        </span>
+                      </Link>
+                    </Button>
+                  </motion.div>
+
+                  {/* Signup Button */}
+                  <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} className="relative group">
+                    <span className="absolute inset-0 rounded-xl bg-blue-500 opacity-0 group-hover:opacity-20 blur-lg transition-opacity duration-300" />
+                    <Button
+                      asChild
+                      size="default"
+                      className="relative bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-semibold rounded-xl px-5 h-9 text-sm shadow-md shadow-blue-600/25 border border-blue-500/30 transition-all duration-200"
+                    >
+                      <Link href="/auth?mode=signup">
+                        <span className="flex items-center gap-1.5">
+                          Sign Up <Sparkles className="h-3.5 w-3.5 text-blue-200" />
+                        </span>
+                      </Link>
+                    </Button>
+                  </motion.div>
+                </div>
               )}
             </div>
 
@@ -591,13 +595,12 @@ export function Navbar() {
               {isAuthenticated && (
                 <div className="flex items-center gap-3 p-2.5 bg-zinc-50/60 dark:bg-white/4 rounded-xl border border-zinc-100/60 dark:border-white/6">
                   <div className="relative w-9 h-9 shrink-0">
-                    {getUserPhoto() ? (
+                    {getUserPhoto() && (
                       <Image src={getUserPhoto()} alt={`${getUserDisplayName()} profile photo`} width={36} height={36} className="rounded-full object-cover" onError={handleImageError} />
-                    ) : (
-                      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold">
-                        {getUserInitials(getUserDisplayName())}
-                      </div>
                     )}
+                    <div className="fallback-avatar absolute inset-0 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold" style={{ display: getUserPhoto() ? "none" : "flex" }}>
+                      {getUserInitials(getUserDisplayName())}
+                    </div>
                     <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 bg-emerald-400 rounded-full ring-2 ring-white dark:ring-zinc-950" />
                   </div>
                   <div className="min-w-0">
@@ -642,7 +645,8 @@ export function Navbar() {
                       key={item.key}
                       href={item.href}
                       onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors"
+                      className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-medium transition ...`}
+
                     >
                       <item.icon className="h-4 w-4 text-zinc-400" />
                       {item.label}
@@ -674,17 +678,9 @@ export function Navbar() {
 
               {/* Footer: theme + search + shortcuts */}
               <div className="flex items-center justify-between pt-1">
-                {mounted && (
-                  <motion.button
-                    whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                    onClick={() => setTheme(isDark ? "light" : "dark")}
-                    className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/8 transition-colors"
-                    aria-label="Toggle theme"
-                  >
-                    {isDark ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4" />}
-                  </motion.button>
-                )}
-                <div className="flex items-center gap-3">
+                <ThemeToggle />
+                <div className="flex flex-col gap-3 mt-auto pt-4 border-t border-zinc-100 dark:border-zinc-900">
+
                   <button
                     onClick={() => {
                       setIsMenuOpen(false);

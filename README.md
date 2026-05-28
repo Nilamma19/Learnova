@@ -172,6 +172,15 @@ cd Learnova
 npm install
 ```
 
+<details>
+<summary>▶️ <b>Windows(or any OS) with pnpm</b></summary>
+
+```bash
+pnpm install
+```
+
+</details>
+
 ### 3. Configure environment variables
 
 A `.env.example` file is included in the repo with all required keys. Copy it first:

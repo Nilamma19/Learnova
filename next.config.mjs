@@ -5,6 +5,7 @@ const withPWA = withPWAInit({
   customWorkerDir: "worker",
   fallbacks: {
     document: "/~offline",
+    image: "/offline.html",
   },
   disable: process.env.NODE_ENV === "development",
   register: true,
@@ -15,6 +16,12 @@ const withPWA = withPWAInit({
   workboxOptions: {
     disableDevLogs: true,
     runtimeCaching: [
+      // API routes - NetworkOnly (must be first for priority)
+      {
+        urlPattern: /\/api\/.*/i,
+        handler: "NetworkOnly",
+      },
+      // General pages - NetworkFirst with offline fallback
       {
         urlPattern: /^https?:\/\/.*$/,
         handler: "NetworkFirst",
@@ -28,8 +35,6 @@ const withPWA = withPWAInit({
             },
           ],
         },
-        urlPattern: /\/api\/.*/i,
-        handler: "NetworkOnly",
       },
       {
         urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
@@ -98,9 +103,11 @@ const nextConfig = {
         source: '/(.*)',
         headers: [
           { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none';" },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
         ],
       },
     ];
