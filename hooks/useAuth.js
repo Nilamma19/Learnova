@@ -17,6 +17,12 @@ const setCookie = (name, value, days = 7) => {
   }
 };
 
+const AUTH_TOKEN_COOKIE_DURATION_HOURS = 1;
+
+const setAuthTokenCookie = (token) => {
+  setCookie("authToken", token, AUTH_TOKEN_COOKIE_DURATION_HOURS / 24);
+};
+
 const deleteCookie = (name) => {
   if (typeof window !== "undefined") {
     const isSecure = process.env.NODE_ENV === "production";
@@ -74,7 +80,7 @@ export const useAuth = () => {
           tokenRefreshInterval = setInterval(async () => {
             try {
               const freshToken = await firebaseUser.getIdToken(true);
-              setCookie("authToken", freshToken, 7);
+              setAuthTokenCookie(freshToken);
             } catch {
               // Network error during background refresh; the next interval will retry.
             }
@@ -90,7 +96,7 @@ export const useAuth = () => {
 
                 // Sync auth token and role in cookies
                 const token = await firebaseUser.getIdToken();
-                setCookie("authToken", token, 7);
+                setAuthTokenCookie(token);
                 setCookie("userRole", profileData.role, 7);
               } else {
                 // User exists in Auth but no profile in Firestore yet
