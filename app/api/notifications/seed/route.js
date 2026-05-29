@@ -1,6 +1,8 @@
-import { connectDb } from "@/lib/mongodb";
-import { parseJSON, authenticateRequest, withErrorHandler } from "@/lib/error-handler";
-import { AppError } from "@/lib/errors";
+import { connectDb } from "../../../../lib/mongodb";
+import { parseJSON, authenticateRequest, withErrorHandler } from "../../../../lib/error-handler";
+import { checkRateLimit } from "../../../../lib/rateLimit";
+import { AppError } from "../../../../lib/errors";
+import { fail, success } from "../../../../lib/api-response";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,12 @@ export const POST = withErrorHandler(async (request) => {
 
   if (decodedToken.uid !== userId) {
     throw new AppError("Forbidden: You can only seed notifications for your own account", 403);
+  }
+
+  const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
+  const rateLimitResult = await checkRateLimit(`notifications_seed_${ip}_${userId}`);
+  if (!rateLimitResult.allowed) {
+    return fail(429, "TOO_MANY_REQUESTS", "Too many requests. Please slow down.");
   }
 
   const db = await connectDb();
@@ -44,5 +52,5 @@ export const POST = withErrorHandler(async (request) => {
     },
   ]);
 
-  return Response.json({ success: true });
+  return success({ success: true });
 });

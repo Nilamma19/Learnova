@@ -9,8 +9,6 @@ import { escapeRegex } from "@/utils/mongoUtils";
 export const dynamic = "force-dynamic";
 
 export const GET = withErrorHandler(async (request) => {
-  // Rate limiting — use the MongoDB-backed helper so state survives across
-  // serverless function instances and cold starts.
   const ip =
     request.headers.get("x-real-ip") ||
     request.headers.get("x-vercel-proxied-for") ||
@@ -23,7 +21,7 @@ export const GET = withErrorHandler(async (request) => {
   }
 
   // Authentication and Role Verification
-  await requireRole(request, ["admin", "teacher", "student"]);
+  const { profile } = await requireRole(request, ["admin", "teacher", "student"]);
 
   // Search query — escape metacharacters to prevent ReDoS
   const { searchParams } = new URL(request.url);
@@ -57,9 +55,10 @@ export const GET = withErrorHandler(async (request) => {
     .limit(50)
     .toArray();
 
+  const showImageFlag = profile.role !== "student";
   const sanitizedUsers = allUsers.map(({ image, ...rest }) => ({
     ...rest,
-    hasImage: !!image,
+    ...(showImageFlag ? { hasImage: !!image } : {}),
   }));
 
   return jsonSuccess(sanitizedUsers, 200);
