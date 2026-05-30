@@ -60,7 +60,11 @@ export default function OfflineIndicator() {
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("attendance-sync-complete", handleSyncComplete);
       navigator.serviceWorker?.removeEventListener("message", handleMessage);
-      clearInterval(interval);
+      
+      // Ensure interval is cleared
+      if (interval) {
+        clearInterval(interval);
+      }
     };
   }, []);
 

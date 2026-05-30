@@ -5,6 +5,15 @@ import { Bell, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
+// AbortController for fetch requests
+const createAbortController = () => {
+  try {
+    return new AbortController();
+  } catch {
+    return null; // Fallback for environments without AbortController
+  }
+};
+
 function timeAgo(date) {
   if (!date) {
     return "just now";
@@ -50,6 +59,9 @@ export default function NotificationBell() {
   const buttonRef = useRef(null);
   const previousIdsRef = useRef(new Set());
   const hasLoadedRef = useRef(false);
+  const abortControllerRef = useRef(null);
+  const pollingTimeoutRef = useRef(null);
+  const isFetchingRef = useRef(false);
 
   const fetchNotifications = useCallback(async () => {
     if (!user?.uid) {
@@ -60,6 +72,18 @@ export default function NotificationBell() {
       return;
     }
 
+    // Prevent overlapping requests
+    if (isFetchingRef.current) {
+      return;
+    }
+    isFetchingRef.current = true;
+
+    // Cancel previous request if still pending
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = createAbortController();
+
     setIsLoading(true);
     setError("");
 
@@ -68,7 +92,8 @@ export default function NotificationBell() {
       const response = await fetch(`/api/notifications?userId=${encodeURIComponent(user.uid)}`, {
         headers: {
           "Authorization": `Bearer ${token}`
-        }
+        },
+        signal: abortControllerRef.current?.signal
       });
 
       if (!response.ok) {
@@ -99,11 +124,16 @@ export default function NotificationBell() {
       previousIdsRef.current = currentIds;
       hasLoadedRef.current = true;
       setNotifications(fetchedNotifications);
-    } catch {
-      setError("Unable to load notifications");
-      setNotifications([]);
+      setError("");
+    } catch (error) {
+      // Ignore abort errors (user-triggered cancellations)
+      if (error?.name !== "AbortError") {
+        setError("Unable to load notifications");
+        setNotifications([]);
+      }
     } finally {
       setIsLoading(false);
+      isFetchingRef.current = false;
     }
   }, [user]);
 
@@ -153,9 +183,30 @@ export default function NotificationBell() {
 
     fetchNotifications();
 
-    const intervalId = setInterval(fetchNotifications, 30000);
+    // Use recursive timeout instead of setInterval to prevent request stacking
+    // Ensures each request completes before the next one starts
+    const scheduleNextPoll = () => {
+      pollingTimeoutRef.current = setTimeout(() => {
+        fetchNotifications().then(() => {
+          scheduleNextPoll();
+        }).catch(() => {
+          // Reschedule even on error
+          scheduleNextPoll();
+        });
+      }, 30000);
+    };
+    scheduleNextPoll();
 
-    return () => clearInterval(intervalId);
+    return () => {
+      if (pollingTimeoutRef.current) {
+        clearTimeout(pollingTimeoutRef.current);
+        pollingTimeoutRef.current = null;
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
   }, [fetchNotifications, loading, user?.uid]);
 
   useEffect(() => {
