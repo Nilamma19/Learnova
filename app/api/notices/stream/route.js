@@ -149,6 +149,7 @@ export async function GET(request) {
     const profile = await getUserProfile(decodedToken.uid);
     const userRole = profile?.role || "student";
     const userId = decodedToken.uid;
+    const instituteId = profile?.instituteId || null;
 
     const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
     const rateLimitResult = await checkRateLimit(`notices_stream_${ip}_${userId}`);
@@ -214,7 +215,10 @@ export async function GET(request) {
 
         try {
           const initialNotices = await noticesCollection
-            .find({ targetAudience: userRole })
+            .find({ 
+              targetAudience: userRole,
+              instituteId: instituteId 
+            })
             .sort({ isPinned: -1, createdAt: -1 })
             .limit(50)
             .toArray();
@@ -234,7 +238,8 @@ export async function GET(request) {
           if (!isConnected) return;
           if (
             doc.targetAudience &&
-            doc.targetAudience.includes(userRole)
+            doc.targetAudience.includes(userRole) &&
+            String(doc.instituteId) === String(instituteId)
           ) {
             sendEvent("new-notice", {
               ...doc,

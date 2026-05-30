@@ -3,8 +3,27 @@
 import { useState, useEffect } from "react";
 import { MessageSquare, Send } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  getCommentStorageKey,
+  normalizeStoredComments,
+} from "@/lib/commentStorage";
+import { safeLocalStorageGet, safeLocalStorageSet } from "@/lib/storage";
 
 // REMOVE db AND useAuth IMPORTS FOR NOW TO PREVENT CRASHES
+const defaultComments = [
+  {
+    id: "seed_1",
+    userName: "Ananya Rao",
+    userRole: "Teacher",
+    text: "Please make sure to review this notice before Monday's class.",
+  },
+  {
+    id: "seed_2",
+    userName: "Rahul Sharma",
+    userRole: "Student",
+    text: "Got it! Thanks for the update.",
+  },
+];
 
 const CommentSection = ({ noticeId }) => {
   // 1. FAKE USER BYPASS: This pretends you are logged in as a Teacher or Student
@@ -16,35 +35,22 @@ const CommentSection = ({ noticeId }) => {
 
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
+  const storageKey = getCommentStorageKey(noticeId);
 
   // 2. Load existing fake comments or persistent local storage comments
   useEffect(() => {
-    if (!noticeId) return;
-    
-    // Check if we have comments stored in the browser for this notice
-    const savedComments = localStorage.getItem(`comments_${noticeId}`);
-    if (savedComments) {
-      setComments(JSON.parse(savedComments));
-    } else {
-      // Seed data so the screen isn't empty when you first look at it
-      const defaultComments = [
-        {
-          id: "seed_1",
-          userName: "Ananya Rao",
-          userRole: "Teacher",
-          text: "Please make sure to review this notice before Monday's class.",
-        },
-        {
-          id: "seed_2",
-          userName: "Rahul Sharma",
-          userRole: "Student",
-          text: "Got it! Thanks for the update.",
-        }
-      ];
-      setComments(defaultComments);
-      localStorage.setItem(`comments_${noticeId}`, JSON.stringify(defaultComments));
+    const savedComments = normalizeStoredComments(
+      safeLocalStorageGet(storageKey, []),
+    );
+
+    if (savedComments.length > 0) {
+      setComments(savedComments);
+      return;
     }
-  }, [noticeId]);
+
+    setComments(defaultComments);
+    safeLocalStorageSet(storageKey, defaultComments);
+  }, [storageKey]);
 
   // 3. Handle comment submission without needing a live backend database connection
   const handleSubmitComment = (e) => {
@@ -60,9 +66,9 @@ const CommentSection = ({ noticeId }) => {
 
     const updatedComments = [...comments, freshComment];
     setComments(updatedComments);
-    
+
     // Save to browser memory so it stays there when you refresh the page
-    localStorage.setItem(`comments_${noticeId}`, JSON.stringify(updatedComments));
+    safeLocalStorageSet(storageKey, updatedComments);
     setNewComment("");
   };
 
