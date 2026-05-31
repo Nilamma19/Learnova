@@ -51,11 +51,14 @@ export default function AuthForm({
   );
 
   const clearError = (field) => {
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: "" }));
-    }
-  };
-
+  if (errors[field]) {
+    setErrors((prev) => {
+      const updatedErrors = { ...prev };
+      delete updatedErrors[field];
+      return updatedErrors;
+    });
+  }
+};
   const validateField = (field, value) => {
     const result = validateAuthField(field, value, {
       isLogin,
@@ -207,6 +210,8 @@ export default function AuthForm({
               onChange={handleFieldChange("confirmPassword", setConfirmPassword)}
               onBlur={handleFieldBlur("confirmPassword")}
               error={errors.confirmPassword}
+              aria-invalid={errors.confirmPassword ? "true" : "false"}
+              aria-describedby={errors.confirmPassword ? "confirm-password-error" : undefined}
               placeholder="Confirm your password"
               icon={Lock}
               isVisible={showConfirmPassword}
