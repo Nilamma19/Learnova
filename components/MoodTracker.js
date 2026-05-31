@@ -125,7 +125,7 @@ export default function MoodTracker() {
               whileTap={{ scale: 0.98 }}
               className={`group relative overflow-hidden rounded-3xl border p-5 text-left transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-violet-400/50 ${
                 isActive
-                  ? "border-transparent bg-gradient-to-br from-violet-500 via-purple-600 to-fuchsia-500 text-white shadow-[0_20px_80px_-50px_rgba(168,85,247,0.85)]"
+                  ? "border-transparent bg-gradient-to-br from-violet-500 via-purple-600 to-fuchsia-500 text-white shadow-[0_20px_80px_-50px_rgba(168,85,247,0.85)] ring-1 ring-white/10"
                   : "border-slate-200 bg-slate-950/80 text-slate-100 shadow-slate-950/10 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100"
               }`}
 
@@ -135,20 +135,10 @@ export default function MoodTracker() {
                   <p className="text-lg font-semibold">{mood.label}</p>
                   <p className="mt-2 text-sm text-slate-400 dark:text-slate-400">{mood.description}</p>
                 </div>
-                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 text-slate-100 dark:bg-slate-800/90 dark:text-slate-100 ${isActive ? "shadow-lg shadow-purple-500/20" : "border border-slate-800 dark:border-slate-700"}`}>
+                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${isActive ? "bg-white/15 text-white ring-1 ring-white/20 shadow-[0_0_0_1px_rgba(255,255,255,0.14)]" : "bg-white/10 text-slate-100 border border-slate-800 dark:bg-slate-800/90 dark:border-slate-700"}`}>
                   <Icon className="h-6 w-6" />
                 </div>
               </div>
-                {isActive && (
-                  <div className="absolute right-4 top-4 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-violet-100 ring-1 ring-violet-500/30">
-                    Selected mood
-                  </div>
-                )}
-              {isActive && (
-                <div className="mt-5 inline-flex items-center rounded-2xl bg-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.35em] text-violet-100 ring-1 ring-violet-500/30">
-                  Selected mood
-                </div>
-              )}
             </motion.button>
           );
         })}

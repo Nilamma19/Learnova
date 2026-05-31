@@ -1,6 +1,8 @@
 import { ObjectId } from "mongodb";
 import { GET, POST } from "@/app/api/images/route";
 import { requireAuth } from "@/lib/rbac";
+import { connectDb } from "@/lib/mongodb";
+import { getUserProfile } from "@/lib/firebase-admin";
 import {
   extractImageFileFromFormData,
   fetchAndValidateImage,
@@ -59,11 +61,8 @@ vi.mock("@/lib/images/imagesService", () => ({
 }));
 
 describe("/api/images route orchestration", () => {
-  let connectDb;
-
   beforeEach(() => {
     vi.clearAllMocks();
-    connectDb = require("@/lib/mongodb").connectDb;
   });
 
   test("GET returns own image when requested id matches authenticated user", async () => {
@@ -110,7 +109,6 @@ describe("/api/images route orchestration", () => {
         findOne: vi.fn().mockResolvedValue({ _id: ownId }),
       }),
     });
-    const { getUserProfile } = require("@/lib/firebase-admin");
     getUserProfile.mockResolvedValue({ role: "student" });
 
     const req = {
@@ -136,7 +134,6 @@ describe("/api/images route orchestration", () => {
         findOne: vi.fn().mockResolvedValue({ _id: ownId }),
       }),
     });
-    const { getUserProfile } = require("@/lib/firebase-admin");
     getUserProfile.mockResolvedValue({ role: "admin" });
     getUserImageFromDb.mockResolvedValue("https://public.blob.vercel-storage.com/admin-view.jpg");
     fetchAndValidateImage.mockResolvedValue({
@@ -168,7 +165,6 @@ describe("/api/images route orchestration", () => {
         findOne: vi.fn().mockResolvedValue({ _id: ownId }),
       }),
     });
-    const { getUserProfile } = require("@/lib/firebase-admin");
     getUserProfile.mockResolvedValue({ role: "teacher" });
     getUserImageFromDb.mockResolvedValue("https://public.blob.vercel-storage.com/teacher-view.jpg");
     fetchAndValidateImage.mockResolvedValue({

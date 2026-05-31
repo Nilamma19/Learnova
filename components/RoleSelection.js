@@ -68,6 +68,7 @@ export default function RoleSelection({ onRoleSelect }) {
           return (
             <button
               key={role}
+              type="button"
               onClick={() => onRoleSelect(role)}
               onKeyDown={(e) => handleKeyDown(e, role)}
               aria-label={`Select ${config.title} role`}

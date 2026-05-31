@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { del } from "@vercel/blob";
 import { requireAuth } from "@/lib/rbac";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { connectDb } from "@/lib/mongodb";
-import { extractImageFileFromFormData } from "@/lib/images/imagesService";
+import { extractImageFileFromFormData, uploadAvatarToBlob } from "@/lib/images/imagesService";
+import { del } from "@vercel/blob";
 
 export const dynamic = "force-dynamic";
 
@@ -40,15 +42,13 @@ export const POST = async (request) => {
 
     console.log("File received:", file.name, file.size, file.type);
 
-    // Validate file type
-    if (!file.type.startsWith("image/")) {
+    if (file.size <= 0) {
       return NextResponse.json(
-        { error: "Invalid file type. Please upload an image." },
+        { error: "File is empty" },
         { status: 400 }
       );
     }
 
-    // Validate file size
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         { error: "File size exceeds 5MB limit" },
@@ -56,30 +56,45 @@ export const POST = async (request) => {
       );
     }
 
-    // Convert file to base64
-    console.log("Converting file to base64...");
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64Data = buffer.toString("base64");
-    const dataUrl = `data:${file.type};base64,${base64Data}`;
+    // Upload to Vercel Blob instead of storing base64 in MongoDB
+    console.log("Uploading to blob storage...");
+    const { blobUrl } = await uploadAvatarToBlob({
+      file,
+      uid: decodedToken.uid,
+    });
 
-    console.log("Data URL created, saving to database...");
+    try {
+      const db = await connectDb();
+      const usersCollection = db.collection("users");
 
-    // Save to MongoDB users collection
-    const db = await connectDb();
-    const usersCollection = db.collection("users");
-    
-    await usersCollection.updateOne(
-      { firebaseUid: decodedToken.uid },
-      { $set: { avatar: dataUrl } }
-    );
+      // Fetch existing avatar URL to clean up old blob if present
+      const existingUser = await usersCollection.findOne(
+        { firebaseUid: decodedToken.uid },
+        { projection: { avatar: 1 } }
+      );
 
-    console.log("Avatar saved successfully to database");
+      await usersCollection.updateOne(
+        { firebaseUid: decodedToken.uid },
+        { $set: { avatar: blobUrl } }
+      );
+
+      // Delete old blob after successful DB write
+      const oldAvatar = existingUser?.avatar;
+      if (oldAvatar && oldAvatar.startsWith("https://")) {
+        await del(oldAvatar).catch(() => {});
+      }
+    } catch (error) {
+      // Roll back blob upload on DB failure
+      await del(blobUrl).catch(() => {});
+      throw error;
+    }
+
+    console.log("Avatar saved successfully to blob storage");
     
     return NextResponse.json(
       { 
         success: true, 
-        url: dataUrl,
+        url: blobUrl,
         message: "Avatar uploaded successfully" 
       },
       { status: 200 }
@@ -99,17 +114,10 @@ export const POST = async (request) => {
       );
     }
     
-    if (error.message && error.message.includes("File size")) {
-      return NextResponse.json(
-        { error: "File size exceeds 5MB limit" },
-        { status: 400 }
-      );
-    }
-
-    if (error.message && error.message.includes("Invalid image")) {
+    if (error.statusCode && error.statusCode < 500) {
       return NextResponse.json(
         { error: error.message },
-        { status: 400 }
+        { status: error.statusCode }
       );
     }
 

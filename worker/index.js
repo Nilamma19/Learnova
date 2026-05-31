@@ -139,7 +139,11 @@ async function replayQueuedMutations() {
 
 self.addEventListener("sync", (event) => {
   if (event.tag === "sync-attendance") {
-    event.waitUntil(syncAttendanceSW());
+    event.waitUntil(
+      syncAttendanceSW().catch((error) => {
+        console.error("[Service Worker] Background sync failed:", error);
+      })
+    );
   } else if (event.tag === "sync-offline-mutations") {
     event.waitUntil(replayQueuedMutations());
   }
@@ -222,16 +226,4 @@ self.addEventListener("fetch", (event) => {
       })
     );
   }
-});
-
-self.addEventListener("sync", (event) => {
-  if (event.tag !== "sync-attendance") {
-    return;
-  }
-
-  event.waitUntil(
-    syncAttendanceSW().catch((error) => {
-      console.error("[Service Worker] Background sync failed:", error);
-    })
-  );
 });

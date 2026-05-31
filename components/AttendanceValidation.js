@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast"; // or whatever toast library you're using
 import { useAuth } from "@/hooks/useAuth";
 import {
+import { apiFetch } from "@/lib/apiClient";
+
   AlertCircle,
   MapPin,
   RefreshCw,
@@ -152,7 +154,7 @@ const AttendanceValidation = ({ onValidationSuccess }) => {
 
     try {
       const token = await user.getIdToken();
-      const response = await fetch("/api/attendance/settings", {
+      const response = await apiFetch("/api/attendance/settings", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -209,7 +211,9 @@ const AttendanceValidation = ({ onValidationSuccess }) => {
 
   // Live countdown timer for the attendance window
   useEffect(() => {
-    if (!settings?.timeWindow) return;
+    if (!settings?.timeWindow) {
+      return undefined;
+    }
 
     const updateTimer = () => {
       const { start, end } = settings.timeWindow;
@@ -256,8 +260,12 @@ const AttendanceValidation = ({ onValidationSuccess }) => {
     updateTimer(); // run immediately
     const intervalId = setInterval(updateTimer, 1000); // update every second
 
-    return () => clearInterval(intervalId);
-  }, [settings]);
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [settings?.timeWindow, settings?.gpsLocation]);
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371e3;
@@ -375,7 +383,7 @@ const AttendanceValidation = ({ onValidationSuccess }) => {
     setPasscodeError("");
     try {
       const token = await user.getIdToken();
-      const response = await fetch("/api/attendance/validate-passcode", {
+      const response = await apiFetch("/api/attendance/validate-passcode", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -487,7 +495,7 @@ const AttendanceValidation = ({ onValidationSuccess }) => {
         },
       };
 
-      const response = await fetch("/api/exceptions/create", {
+      const response = await apiFetch("/api/exceptions/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

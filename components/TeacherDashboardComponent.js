@@ -4,6 +4,7 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
 } from "react";
 import { Navbar } from "./Navbar";
 import Image from "next/image";
@@ -67,10 +68,13 @@ import ChartSkeleton from "@/components/ui/ChartSkeleton";
 import DashboardSkeleton from "@/components/ui/DashboardSkeleton";
 import SkeletonCard from "@/components/ui/SkeletonCard";
 import AttendanceAnalytics from "@/components/dashboard/AttendanceAnalytics";
+import AttendanceRiskDashboard from "@/components/dashboard/AttendanceRiskDashboard";
 import { AttendancePasscodeModal } from "./dashboard/AttendancePasscodeModal";
 import { ExceptionRequestsList } from "./dashboard/ExceptionRequestsList";
 import { useAttendance } from "@/hooks/useAttendance";
 import { useCurriculum } from "@/hooks/useCurriculum";
+import { apiFetch } from "@/lib/apiClient";
+
 
 const AttendanceTrendsChart = dynamic(
   () => import("@/components/charts/AttendanceTrendsChart"),
@@ -126,6 +130,72 @@ const TeacherDashboard = () => {
 
   const [weeklySchedule, setWeeklySchedule] = useState({});
   const [isExporting, setIsExporting] = useState(false);
+
+  const abortControllerRef = useRef(null);
+  const pollingTimeoutRef = useRef(null);
+  const isFetchingRef = useRef(false);
+
+  const fetchExceptionRequests = async (isBackground = false) => {
+    if (!user) return;
+
+    // Prevent overlapping requests
+    if (isFetchingRef.current) {
+      return;
+    }
+    isFetchingRef.current = true;
+
+    // Cancel previous request if still pending
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
+    if (!isBackground) setIsLoadingRequests(true);
+    setRequestsError(null);
+
+    try {
+      const token = await user.getIdToken();
+      const response = await apiFetch("/api/exceptions/list", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        signal: abortControllerRef.current.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const payload = data.data ?? data;
+
+      // Normalize data structure
+      const normalizedRequests = (payload.exceptions || []).map((req) => ({
+        id: req._id || req.id,
+        studentName: req.studentName || req.student || "Unknown Student",
+        studentId: req.studentId || req.rollNo || "",
+        className: req.className || req.class || "",
+        reason: req.reason || "",
+        details: req.details || "",
+        status: req.status || "pending",
+        timestamp: req.createdAt || req.timestamp,
+        currentLocation: req.currentLocation,
+        comments: req.comments || "",
+        reviewedBy: req.reviewedBy || "",
+        reviewedAt: req.reviewedAt || "",
+      }));
+
+      setExceptionRequests(normalizedRequests);
+    } catch (error) {
+      // Ignore abort errors (user-triggered cancellations)
+      if (error?.name !== "AbortError") {
+        setRequestsError(error.message);
+      }
+    } finally {
+      if (!isBackground) setIsLoadingRequests(false);
+      isFetchingRef.current = false;
+    }
+  };
 
   const handleExport = (format) => {
     setIsExporting(true);
@@ -228,7 +298,7 @@ const TeacherDashboard = () => {
     setIsLoadingRequests(true);
     try {
       const token = await user.getIdToken();
-      const response = await fetch("/api/exceptions/all", {
+      const response = await apiFetch("/api/exceptions/all", {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -266,62 +336,38 @@ const TeacherDashboard = () => {
 
   // Fetch exception requests
   useEffect(() => {
-    const fetchExceptionRequests = async (isBackground = false) => {
-      if (!user) return;
-
-      if (!isBackground) setIsLoadingRequests(true);
-      setRequestsError(null);
-
-      try {
-        const token = await user.getIdToken();
-        const response = await fetch("/api/exceptions/list", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const payload = data.data ?? data;
-
-        // Normalize data structure
-        const normalizedRequests = (payload.exceptions || []).map((req) => ({
-          id: req._id || req.id,
-          studentName: req.studentName || req.student || "Unknown Student",
-          studentId: req.studentId || req.rollNo || "",
-          className: req.className || req.class || "",
-          reason: req.reason || "",
-          details: req.details || "",
-          status: req.status || "pending",
-          timestamp: req.createdAt || req.timestamp,
-          currentLocation: req.currentLocation,
-          comments: req.comments || "",
-          reviewedBy: req.reviewedBy || "",
-          reviewedAt: req.reviewedAt || "",
-        }));
-
-        setExceptionRequests(normalizedRequests);
-      } catch (error) {
-        setRequestsError(error.message);
-      } finally {
-        if (!isBackground) setIsLoadingRequests(false);
-      }
-    };
-
     fetchExceptionRequests();
 
-    // Poll for updates every 30 seconds
-    const interval = setInterval(() => fetchExceptionRequests(true), 30000);
-    return () => clearInterval(interval);
+    // Use recursive timeout instead of setInterval to prevent request stacking
+    // Ensures each poll completes before the next one starts
+    const scheduleNextPoll = () => {
+      pollingTimeoutRef.current = setTimeout(() => {
+        fetchExceptionRequests(true).then(() => {
+          scheduleNextPoll();
+        }).catch(() => {
+          // Reschedule even on error
+          scheduleNextPoll();
+        });
+      }, 30000);
+    };
+    scheduleNextPoll();
+    
+    return () => {
+      if (pollingTimeoutRef.current) {
+        clearTimeout(pollingTimeoutRef.current);
+        pollingTimeoutRef.current = null;
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
   }, [user]);
 
   const handleExceptionRequest = async (id, action) => {
     try {
       const token = await user.getIdToken();
-      const response = await fetch("/api/exceptions/update", {
+      const response = await apiFetch("/api/exceptions/update", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -371,8 +417,12 @@ const TeacherDashboard = () => {
     }, 1000);
 
     return () => {
-      clearInterval(timer);
-      clearTimeout(loadingTimer);
+      if (timer) {
+        clearInterval(timer);
+      }
+      if (loadingTimer) {
+        clearTimeout(loadingTimer);
+      }
     };
   }, []);
 
@@ -420,7 +470,7 @@ const TeacherDashboard = () => {
       }
 
       const token = await user.getIdToken();
-      const res = await fetch("/api/attendance/settings", {
+      const res = await apiFetch("/api/attendance/settings", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -451,7 +501,7 @@ const TeacherDashboard = () => {
     setPasscodeLoading(true);
     try {
       const token = await user.getIdToken();
-      const res = await fetch("/api/attendance/settings", {
+      const res = await apiFetch("/api/attendance/settings", {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -942,6 +992,10 @@ const TeacherDashboard = () => {
       <div className="grid grid-cols-1 gap-8 mt-8">
         <div className="bg-card/40 dark:bg-black/40 backdrop-blur-xl rounded-2xl border border-border dark:border-white/10 p-6">
           <AttendanceAnalytics userId={user?.uid} />
+        </div>
+        {/* feat: AI-powered attendance risk dashboard (issue #2183) */}
+        <div className="bg-card/40 dark:bg-black/40 backdrop-blur-xl rounded-2xl border border-border dark:border-white/10 p-6">
+          <AttendanceRiskDashboard />
         </div>
       </div>
     </div>

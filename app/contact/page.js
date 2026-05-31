@@ -214,8 +214,9 @@ export default function Contact() {
   const cardClass =
     "bg-white dark:bg-card backdrop-blur-xl rounded-3xl border border-slate-200/80 dark:border-border shadow-md shadow-slate-200/60 dark:shadow-none ring-1 ring-black/[0.04] dark:ring-white/5";
 
+ 
   const inputClass =
-    "w-full p-4 bg-white dark:bg-background border border-slate-300 dark:border-border rounded-xl text-foreground placeholder:text-slate-400 dark:placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent/50 transition-colors duration-300 shadow-sm dark:shadow-none";
+    "w-full p-4 bg-white dark:bg-background border border-slate-300/90 dark:border-border/80 rounded-xl text-slate-900 dark:text-foreground placeholder:text-slate-400/90 dark:placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent/60 transition-colors duration-200 shadow-sm dark:shadow-none text-sm";
 
   const sectionHeadingClass =
     "text-2xl font-bold text-slate-800 dark:text-foreground flex items-center gap-2 before:block before:w-1 before:h-6 before:rounded-full before:bg-accent before:shrink-0 dark:before:bg-accent";
@@ -223,10 +224,11 @@ export default function Contact() {
   return (
     <>
       {/* Background */}
-      <div className="fixed inset-0 -z-10 bg-gradient-to-br from-slate-50 via-white to-white dark:bg-background">
+
+      <div className="fixed inset-0 -z-10 bg-gradient-to-br from-slate-50 via-white to-white dark:bg-background will-change-transform">
         {isDark && <DarkVeil />}
 
-        {/* Ambient blobs — more visible in light mode */}
+        {/* Ambient blobs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute w-[28rem] h-[28rem] bg-gradient-to-r from-purple-400/15 to-pink-400/15 dark:from-purple-500/5 dark:to-pink-500/5 rounded-full blur-3xl top-16 -left-16 animate-pulse" />
           <div
@@ -258,7 +260,8 @@ export default function Contact() {
         <Navbar />
 
         {loading ? (
-          <section className="pt-32 pb-16 px-4 sm:px-6 lg:px-8">
+          
+          <section className="pt-20 md:pt-24 pb-16 px-4 sm:px-6 lg:px-8">
             <div className="max-w-4xl mx-auto">
               <FormSkeleton />
             </div>
@@ -266,24 +269,25 @@ export default function Contact() {
         ) : (
           <>
             {/* ── Hero ── */}
-            <section className="pt-32 pb-12 px-4 sm:px-6 lg:px-8">
+            
+            <section className="pt-20 md:pt-24 pb-8 md:pb-10 px-4 sm:px-6 lg:px-8">
               <div className="max-w-4xl mx-auto text-center">
                 {/* Badge */}
-                <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-accent/15 to-purple-500/15 dark:from-accent/20 dark:to-purple-500/20 rounded-full border border-accent/30 dark:border-accent/30 backdrop-blur-sm mb-6 shadow-sm dark:shadow-none">
+                <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-accent/15 to-purple-500/15 dark:from-accent/20 dark:to-purple-500/20 rounded-full border border-accent/30 dark:border-accent/30 backdrop-blur-sm mb-5 shadow-sm dark:shadow-none">
                   <MessageCircle className="w-4 h-4 text-accent mr-2" />
                   <span className="text-accent font-semibold text-sm tracking-wide">
                     Get in Touch
                   </span>
                 </div>
 
-                <h1 className="text-5xl md:text-6xl font-bold text-slate-900 dark:text-white mb-5 tracking-tight">
+                <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-slate-900 dark:text-white mb-4 tracking-tight">
                   Contact{" "}
                   <span className="bg-gradient-to-r from-accent via-purple-500 to-pink-500 bg-clip-text text-transparent">
                     Learnova
                   </span>
                 </h1>
 
-                <p className="text-lg md:text-xl text-slate-600 dark:text-muted-foreground leading-relaxed max-w-2xl mx-auto">
+                <p className="text-base md:text-lg text-slate-600 dark:text-muted-foreground leading-relaxed max-w-2xl mx-auto">
                   Ready to transform your educational institution? Let&apos;s
                   discuss how Learnova can streamline your operations and enhance
                   student success.
@@ -291,29 +295,30 @@ export default function Contact() {
               </div>
             </section>
 
-            {/* ── Main grid ── */}
-            <div className="px-4 sm:px-6 lg:px-8 pb-24">
+            
+            <div className="px-4 sm:px-6 lg:px-8 pb-20 md:pb-24">
               <div className="max-w-7xl mx-auto">
-                <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-start">
+
+                <div className="grid lg:grid-cols-2 gap-8 md:gap-10 lg:gap-12 items-start">
 
                   {/* ── Contact Form ── */}
-                  <div className="relative h-full">
-                    <div className={`${cardClass} p-8 lg:p-10 h-full hover:border-accent/40 dark:hover:border-accent/30 transition-colors duration-500`}>
+                  <div className="relative">
+                    <div className={`${cardClass} p-6 sm:p-8 lg:p-10 hover:border-accent/40 dark:hover:border-accent/30 transition-colors duration-300`}>
 
                       {/* Form header */}
-                      <div className="mb-8 pb-6 border-b border-slate-100 dark:border-border/50">
+                      <div className="mb-7 pb-5 border-b border-slate-100 dark:border-border/50">
                         <h2 className={sectionHeadingClass}>
                           Send us a Message
                         </h2>
-                        <p className="text-slate-500 dark:text-muted-foreground mt-2 ml-3">
+                        <p className="text-slate-500 dark:text-muted-foreground mt-2 ml-3 text-sm">
                           Fill out the form below and our team will get back to
                           you within 24 hours.
                         </p>
                       </div>
 
                       <form onSubmit={handleSubmit} className="space-y-5">
-                        {/* Name + Email row */}
-                        <div className="grid md:grid-cols-2 gap-5 items-start">
+                        
+                        <div className="grid sm:grid-cols-2 gap-4 sm:gap-5 items-start">
                           <div className="flex flex-col gap-1.5">
                             <label
                               htmlFor="contact-name"
@@ -331,9 +336,10 @@ export default function Contact() {
                               maxLength={100}
                               className={inputClass}
                             />
-                            <div className="min-h-5">
+                            
+                            <div className="min-h-[1.25rem]">
                               {errors.name && (
-                                <p className="text-red-500 dark:text-red-400 text-xs mt-0.5 font-medium">
+                                <p className="text-red-500 dark:text-red-400 text-xs font-medium">
                                   {errors.name}
                                 </p>
                               )}
@@ -357,9 +363,9 @@ export default function Contact() {
                               maxLength={254}
                               className={inputClass}
                             />
-                            <div className="min-h-5">
+                            <div className="min-h-[1.25rem]">
                               {errors.email && (
-                                <p className="text-red-500 dark:text-red-400 text-xs mt-0.5 font-medium">
+                                <p className="text-red-500 dark:text-red-400 text-xs font-medium">
                                   {errors.email}
                                 </p>
                               )}
@@ -404,14 +410,16 @@ export default function Contact() {
                             maxLength={1000}
                             className={`${inputClass} resize-none`}
                           />
-                          {errors.message && (
-                            <p className="text-red-500 dark:text-red-400 text-xs mt-0.5 font-medium">
-                              {errors.message}
-                            </p>
-                          )}
+                          {/* FIX: Reserve space for error message to avoid jump */}
+                          <div className="min-h-[1.25rem]">
+                            {errors.message && (
+                              <p className="text-red-500 dark:text-red-400 text-xs font-medium">
+                                {errors.message}
+                              </p>
+                            )}
+                          </div>
                         </div>
 
-                        {/* Submit status */}
                         {submitStatus && (
                           <div
                             className={`p-4 rounded-xl flex items-start gap-3 text-sm font-medium ${
@@ -430,10 +438,11 @@ export default function Contact() {
                         )}
 
                         {/* Submit button */}
+
                         <button
                           type="submit"
                           disabled={isSubmitting || cooldown}
-                          className="group w-full bg-gradient-to-r from-accent to-purple-500 text-white py-4 px-6 rounded-xl font-semibold shadow-lg shadow-accent/25 dark:shadow-accent/10 hover:shadow-xl hover:shadow-accent/30 dark:hover:shadow-accent/20 transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                          className="group w-full bg-gradient-to-r from-accent to-purple-500 text-white py-4 px-6 rounded-xl font-semibold shadow-lg shadow-accent/25 dark:shadow-accent/10 hover:shadow-xl hover:shadow-accent/30 dark:hover:shadow-accent/20 transition-all duration-250 ease-in-out transform-gpu hover:scale-[1.015] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3"
                         >
                           {isSubmitting ? (
                             <>
@@ -448,7 +457,7 @@ export default function Contact() {
                           ) : (
                             <>
                               Send Message
-                              <Send className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />
+                              <Send className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
                             </>
                           )}
                         </button>
@@ -457,11 +466,11 @@ export default function Contact() {
                   </div>
 
                   {/* ── Right column ── */}
-                  <div className="space-y-6">
+                  <div className="space-y-5 md:space-y-6">
 
                     {/* Contact Details */}
-                    <div className={`${cardClass} p-8`}>
-                      <h3 className={`${sectionHeadingClass} mb-6`}>
+                    <div className={`${cardClass} p-6 sm:p-8`}>
+                      <h3 className={`${sectionHeadingClass} mb-5`}>
                         Get in Touch
                       </h3>
 
@@ -469,10 +478,10 @@ export default function Contact() {
                         {contactInfo.map((info, index) => (
                           <div
                             key={index}
-                            className="group flex items-center gap-4 py-4 first:pt-0 last:pb-0"
+                            className="group flex items-center gap-4 py-3.5 first:pt-0 last:pb-0"
                           >
                             <div
-                              className={`w-11 h-11 shrink-0 bg-gradient-to-br ${info.gradient} rounded-xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform duration-300`}
+                              className={`w-11 h-11 shrink-0 bg-gradient-to-br ${info.gradient} rounded-xl flex items-center justify-center shadow-sm transition-transform duration-200 group-hover:scale-110`}
                             >
                               <info.icon className="w-5 h-5 text-white" />
                             </div>
@@ -483,12 +492,12 @@ export default function Contact() {
                               {info.href ? (
                                 <a
                                   href={info.href}
-                                  className="text-slate-800 dark:text-foreground text-base font-medium hover:text-accent dark:hover:text-accent transition-colors duration-300 break-words"
+                                  className="text-slate-800 dark:text-foreground text-sm font-medium hover:text-accent dark:hover:text-accent transition-colors duration-200 break-words"
                                 >
                                   {info.value}
                                 </a>
                               ) : (
-                                <p className="text-slate-800 dark:text-foreground text-base font-medium break-words">
+                                <p className="text-slate-800 dark:text-foreground text-sm font-medium break-words">
                                   {info.value}
                                 </p>
                               )}
@@ -499,12 +508,12 @@ export default function Contact() {
                     </div>
 
                     {/* Business Hours */}
-                    <div className={`${cardClass} p-8`}>
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="w-11 h-11 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-sm">
+                    <div className={`${cardClass} p-6 sm:p-8`}>
+                      <div className="flex items-center gap-3 mb-5">
+                        <div className="w-11 h-11 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-sm shrink-0">
                           <Clock className="w-5 h-5 text-white" />
                         </div>
-                        <h3 className="text-2xl font-bold text-slate-800 dark:text-foreground">
+                        <h3 className="text-xl font-bold text-slate-800 dark:text-foreground">
                           Business Hours
                         </h3>
                       </div>
@@ -536,7 +545,7 @@ export default function Contact() {
                         </div>
                       </div>
 
-                      <div className="mt-5 p-4 bg-accent/8 dark:bg-accent/10 rounded-xl border border-accent/20 dark:border-accent/20">
+                      <div className="mt-4 p-4 bg-accent/8 dark:bg-accent/10 rounded-xl border border-accent/20 dark:border-accent/20">
                         <p className="text-accent dark:text-accent text-sm font-medium flex items-start gap-2">
                           <Sparkles className="w-4 h-4 shrink-0 mt-0.5" />
                           For urgent support, we respond to emails within 2 hours
@@ -546,8 +555,8 @@ export default function Contact() {
                     </div>
 
                     {/* Social Links */}
-                    <div className={`${cardClass} p-8`}>
-                      <h3 className={`${sectionHeadingClass} mb-5`}>
+                    <div className={`${cardClass} p-6 sm:p-8`}>
+                      <h3 className={`${sectionHeadingClass} mb-4`}>
                         Follow Us
                       </h3>
 
@@ -557,7 +566,7 @@ export default function Contact() {
                             key={index}
                             href={social.href}
                             aria-label={social.label}
-                            className={`w-12 h-12 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl flex items-center justify-center text-slate-500 dark:text-muted-foreground shadow-sm dark:shadow-none ${social.color} transition-all duration-300 hover:scale-110 hover:shadow-md dark:hover:shadow-none`}
+                            className={`w-12 h-12 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl flex items-center justify-center text-slate-500 dark:text-muted-foreground shadow-sm dark:shadow-none ${social.color} transition-all duration-200 ease-in-out hover:scale-110 hover:shadow-md dark:hover:shadow-none`}
                           >
                             <social.icon className="w-5 h-5" />
                           </Link>

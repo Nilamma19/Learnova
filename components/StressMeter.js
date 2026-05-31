@@ -45,14 +45,14 @@ export default function StressMeter() {
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[280px_1fr] items-center">
         <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/90 dark:bg-slate-900/80 p-6 shadow-sm">
-          <div className="w-48 mx-auto">
+          <div className="w-48 mx-auto text-slate-950 dark:text-slate-50">
             <CircularProgressbar
               value={stress}
               text={`${stress}%`}
               strokeWidth={10}
               styles={buildStyles({
                 pathColor: accent,
-                textColor: "#ffffff",
+                textColor: "currentColor",
                 textSize: "22px",
                 trailColor: "rgba(148,163,184,0.2)",
                 backgroundColor: "#0f172a",
