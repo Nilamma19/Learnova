@@ -43,10 +43,10 @@ const CommentSection = ({ noticeId }) => {
 
 
   useEffect(() => {
-    const savedComments = localStorage.getItem(storageKey);
+    const savedComments = safeLocalStorageGet(storageKey, null);
 
     if (savedComments) {
-      setComments(JSON.parse(savedComments));
+      setComments(normalizeStoredComments(savedComments));
     } else {
       const defaultComments = [
         {
