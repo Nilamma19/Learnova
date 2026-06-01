@@ -1,3 +1,4 @@
+
 const STORAGE_KEY = "learnova_recent_activity";
 
 export function getRecentActivities() {
