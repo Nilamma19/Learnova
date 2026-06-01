@@ -303,8 +303,8 @@ export default function Page() {
                         onMouseLeave={() => setHoveredRing(null)}
                         className={`group block p-4 rounded-2xl border transition-all duration-500 cursor-pointer
                           ${isSelected
-                            ? "bg-purple-950/20 border-purple-500/40 translate-x-2 shadow-lg shadow-purple-500/5"
-                            : "bg-white/[0.02] dark:bg-black/20 border-white/5 hover:border-white/10 hover:bg-white/[0.04]"
+                            ? "bg-purple-100 dark:bg-purple-950/20 border-purple-400 dark:border-purple-500/40 translate-x-2 shadow-lg shadow-purple-500/5"
+                            : "bg-gray-100/80 dark:bg-black/20 border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10 hover:bg-gray-100 dark:hover:bg-white/[0.04]"
                           }`}
                       >
                         {stat.href ? (
