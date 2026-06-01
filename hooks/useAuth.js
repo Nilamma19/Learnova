@@ -128,6 +128,9 @@ export const useAuth = () => {
               console.warn("Failed to clear PWA caches on auth state change:", cacheErr);
             }
           }
+          if (typeof window !== "undefined" && navigator.serviceWorker?.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: "CLEAR_USER_CACHE" });
+          }
           setLoading(false);
         }
 
@@ -177,6 +180,9 @@ export const useAuth = () => {
         } catch (cacheErr) {
           console.warn("Failed to clear PWA caches on sign out:", cacheErr);
         }
+      }
+      if (typeof window !== "undefined" && navigator.serviceWorker?.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: "CLEAR_USER_CACHE" });
       }
     } catch (err) {
       setError(err.message);
