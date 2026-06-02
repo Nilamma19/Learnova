@@ -4,6 +4,7 @@ import { useCallback, useEffect, useReducer, useState } from "react";
 import dynamic from "next/dynamic";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useIdleTimeout } from "@/hooks/useIdleTimeout";
+import { normalizeStreakCount } from "@/lib/streakUtils";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ShortcutsModal from "@/components/ShortcutsModal";
 import SearchModal from "@/components/SearchModal";
@@ -196,9 +197,7 @@ export default function ClientLayout({ children }) {
         }
         if (!Array.isArray(clientHistory)) clientHistory = [];
 
-        const firestoreStreak = userProfile?.siteStreak || 0;
-        // 2. Fetch Firestore profile variables
-        firestoreStreak = normalizeStreakCount(userProfile?.siteStreak);
+        const firestoreStreak = normalizeStreakCount(userProfile?.siteStreak) ?? 0;
         const firestoreLastVisit = userProfile?.siteLastVisit || "";
         const firestoreHistory = userProfile?.siteVisitHistory || [];
 
