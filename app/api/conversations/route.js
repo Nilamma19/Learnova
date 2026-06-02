@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { Groq } from "groq-sdk";
 import { parseJSON } from "@/lib/error-handler";
 import { checkRateLimit } from "@/lib/rateLimit";
-import { detectInjection, sanitizeMessage } from "@/utils/promptGuard";
+import { detectInjection, sanitizeMessage, buildSecureMessages } from "@/utils/promptGuard";
 // 🎯 INTEGRATION: Import the localized action engine agent parser
 import { parseUserIntent } from "@/services/ai-agent/intentparser";
 import { requireAuth } from "@/lib/rbac";
 import { AppError } from "@/lib/errors";
 
 // Initialize the official Groq SDK client instance
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || "dummy_groq_api_key" });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || "dummy_groq_api_key", dangerouslyAllowBrowser: true });
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -135,28 +135,24 @@ export async function POST(request) {
 
     // 5. Structure Context Array & Inject Grounding Guardrails
     const sanitizedInput = sanitizeMessage(trimmedMessage);
-    const processedMessages = trimmedMessages.map((msg, index) => {
+    const historyMessages = trimmedMessages.slice(0, -1).map(msg => {
       const isBotMessage = msg.isBot || msg.role === "assistant";
-      const isLast = index === trimmedMessages.length - 1;
-      const rawText = isLast ? sanitizedInput : (msg.text || msg.content || "");
-      
       return {
         role: isBotMessage ? "assistant" : "user",
-        content: rawText
+        content: msg.text || msg.content || ""
       };
     });
 
-    const systemPrompt = {
-      role: "system",
-      content: `You are Nova, an authentic, supportive AI assistant for Learnova—the Smart Student Engagement Ecosystem. 
-      Current institutional focus area context: ${category.toUpperCase()}.
-      Provide insights using structured markdown lists and tables where helpful. Keep responses direct and highly conversational.`
-    };
+    const baseSystemPrompt = `You are Nova, an authentic, supportive AI assistant for Learnova—the Smart Student Engagement Ecosystem. 
+Current institutional focus area context: ${category.toUpperCase()}.
+Provide insights using structured markdown lists and tables where helpful. Keep responses direct and highly conversational.`;
+
+    const secureMessages = buildSecureMessages(sanitizedInput, baseSystemPrompt, historyMessages);
 
     // 6. Establish Streaming Connection to Groq API Cloud Architecture
     const groqStream = await groq.chat.completions.create({
       model: "llama3-8b-8192",
-      messages: [systemPrompt, ...processedMessages],
+      messages: secureMessages,
       stream: true, 
     });
 
@@ -195,6 +191,13 @@ export async function POST(request) {
     if (error instanceof AppError) {
       return new Response(JSON.stringify({ error: error.message }), {
         status: error.statusCode,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (error.message === "Unauthorized") {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
         headers: { "Content-Type": "application/json" },
       });
     }
