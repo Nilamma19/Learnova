@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { db } from "@/lib/firebaseConfig";
 import {
   collection,
@@ -189,13 +189,15 @@ export const useAttendance = ({ role, user }) => {
   // teacher real-time roster via onSnapshot
   useEffect(() => {
     if (role !== "teacher" || !user) return;
-    let unsubscribe = () => {};
+    let cancelled = false;
+    const unsubRef = { current: () => {} };
 
     const fetchStudentsAndAttendance = async () => {
       try {
         const usersRef = collection(db, "users");
         const qStudents = query(usersRef, where("role", "==", "student"));
         const studentDocs = await getDocs(qStudents);
+        if (cancelled) return;
 
         const studentsList = studentDocs.docs.map((doc) => ({
           id: doc.id,
@@ -213,8 +215,10 @@ export const useAttendance = ({ role, user }) => {
           collection(db, "attendance_records"),
           where("date", "==", today)
         );
+        if (cancelled) return;
 
-        unsubscribe = onSnapshot(attendanceQuery, (snapshot) => {
+        unsubRef.current = onSnapshot(attendanceQuery, (snapshot) => {
+          if (cancelled) return;
           const attendanceMap = new Map();
           snapshot.docs.forEach((doc) => {
             const data = doc.data();
@@ -270,7 +274,10 @@ export const useAttendance = ({ role, user }) => {
     };
 
     fetchStudentsAndAttendance();
-    return () => unsubscribe();
+    return () => {
+      cancelled = true;
+      unsubRef.current();
+    };
   }, [role, user]);
 
   useEffect(() => {
