@@ -22,6 +22,7 @@ import {
   CalendarPlus,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsMounted } from "@/hooks/useIsMounted";
 
 
 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -91,6 +92,7 @@ export default function Timetable({ role = "student" }) {
   
   // Dynamic State & CRUD Modals State
   const [mounted, setMounted] = useState(false);
+  const isMounted = useIsMounted();
   const [timetableData, setTimetableData] = useState(mockTimetable);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
@@ -121,6 +123,7 @@ export default function Timetable({ role = "student" }) {
         });
         if (res.ok) {
           const data = await res.json();
+          if (!isMounted()) return;
           if (data.data?.timetableData) {
             setTimetableData(data.data.timetableData);
             localStorage.setItem("learnova_custom_timetable", JSON.stringify(data.data.timetableData));
@@ -137,7 +140,7 @@ export default function Timetable({ role = "student" }) {
     if (user && mounted) {
       fetchBackendTimetable();
     }
-  }, [user, mounted]);
+  }, [user, mounted, isMounted]);
 
   // Client-side Hydration Safe loading of timetableData
   useEffect(() => {
@@ -179,14 +182,14 @@ export default function Timetable({ role = "student" }) {
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.data?.calendarToken) {
+          if (data.data?.calendarToken && isMounted()) {
             setCalendarToken(data.data.calendarToken);
           }
         }
       } catch (err) {
         console.error("Failed to sync timetable:", err);
       } finally {
-        setIsSyncing(false);
+        if (isMounted()) setIsSyncing(false);
       }
     }
   };
