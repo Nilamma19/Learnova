@@ -81,6 +81,7 @@ describe("/api/images route orchestration", () => {
     connectDb.mockResolvedValue({
       collection: vi.fn().mockReturnValue({
         findOne: vi.fn().mockResolvedValue({ _id: userId }),
+        createIndex: vi.fn(),
       }),
     });
     getUserImageFromDb.mockResolvedValue("https://public.blob.vercel-storage.com/a.jpg");
@@ -115,6 +116,7 @@ describe("/api/images route orchestration", () => {
     connectDb.mockResolvedValue({
       collection: vi.fn().mockReturnValue({
         findOne: vi.fn().mockResolvedValue({ _id: ownId }),
+        createIndex: vi.fn(),
       }),
     });
     getUserProfile.mockResolvedValue({ role: "student" });
@@ -140,6 +142,7 @@ describe("/api/images route orchestration", () => {
     connectDb.mockResolvedValue({
       collection: vi.fn().mockReturnValue({
         findOne: vi.fn().mockResolvedValue({ _id: ownId }),
+        createIndex: vi.fn(),
       }),
     });
     getUserProfile.mockResolvedValue({ role: "admin" });
@@ -177,6 +180,7 @@ describe("/api/images route orchestration", () => {
     connectDb.mockResolvedValue({
       collection: vi.fn().mockReturnValue({
         findOne: findOneMock,
+        createIndex: vi.fn(),
       }),
     });
     getUserProfile.mockResolvedValue({ role: "teacher" });
@@ -203,6 +207,7 @@ describe("/api/images route orchestration", () => {
     connectDb.mockResolvedValue({
       collection: vi.fn().mockReturnValue({
         findOne: vi.fn().mockResolvedValue(null),
+        createIndex: vi.fn(),
       }),
     });
 
