@@ -240,11 +240,10 @@ export async function GET(request) {
           continue;
         }
 
-        // Use MongoDB attendance data (scoped by institute) instead of Firestore
-        const studentAttendance = attendanceByUser.get(studentUid) || [];
         const uid = student.uid || student.firebaseUid;
         if (!uid) continue;
 
+        // Use MongoDB attendance data (scoped by institute) instead of Firestore
         const studentAttendance = attendanceByUser.get(uid) || [];
         const evaluation = evaluateStudentAttendance(studentAttendance, threshold);
 
