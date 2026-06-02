@@ -57,6 +57,13 @@ const settingsSchema = z
           .strict(),
       ])
       .optional(),
+    institute: z
+      .object({
+        lowAttendanceThreshold: z.number().min(0).max(100).optional(),
+        enableAttendanceAutomation: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
     privacy: z
       .object({
         profileVisibility: z.string().optional(),
@@ -115,6 +122,14 @@ export const PATCH = withErrorHandler(async (request) => {
   }
 
   const { userId: bodyUserId, ...settings } = parsed.data;
+
+  // Restrict institute-level settings to privileged roles only
+  if (settings.institute) {
+    const profile = await getUserProfile(decodedToken.uid);
+    if (!profile || !["admin", "institute"].includes(profile.role)) {
+      throw new ForbiddenError("Forbidden: Only institute admins can modify institute settings.");
+    }
+  }
   
   let targetUserId = decodedToken.uid;
   let isOperatorAdmin = false;
@@ -173,7 +188,11 @@ export const PATCH = withErrorHandler(async (request) => {
     
     if (Object.keys(firestoreProfileUpdate).length > 0) {
       try {
-        await admin.firestore().collection("users").doc(targetUserId).update(firestoreProfileUpdate);
+        await admin
+  .firestore()
+  .collection("users")
+  .doc(targetUserId)
+  .set(firestoreProfileUpdate, { merge: true });
 
         logger.info(`[Firestore Sync] Profile synced for user: ${targetUserId}`);
       } catch (syncError) {
@@ -182,7 +201,8 @@ export const PATCH = withErrorHandler(async (request) => {
     }
   }
 
-  
+  const operatorRole = isOperatorAdmin ? "admin" : "owner";
+  console.log(`[Audit Log] Settings updated successfully for target user: ${targetUserId} by operator: ${decodedToken.uid} (Role: ${operatorRole})`);
 
   return success({ message: "Settings saved successfully" });
 });

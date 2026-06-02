@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { jsonError, jsonSuccess } from "@/lib/api-response";
-import { withErrorHandler, authenticateRequest, parseJSON } from "@/lib/error-handler";
+import { withErrorHandler, parseJSON } from "@/lib/error-handler";
+import { requireAuth } from "@/lib/rbac";
 import { initFirebaseAdmin } from "@/lib/firebase-admin";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { checkRateLimit } from "@/lib/rateLimit";
@@ -27,7 +28,7 @@ const activitySchema = z.object({
 });
 
 export const GET = withErrorHandler(async (request) => {
-  const decodedToken = await authenticateRequest(request);
+  const decodedToken = await requireAuth(request);
   initFirebaseAdmin();
   const db = getFirestore();
 
@@ -35,6 +36,7 @@ export const GET = withErrorHandler(async (request) => {
     .collection("activities")
     .where("userId", "==", decodedToken.uid)
     .orderBy("timestamp", "desc")
+    .limit(100)
     .get();
 
   const activities = snapshot.docs.map((doc) => ({
@@ -47,7 +49,7 @@ export const GET = withErrorHandler(async (request) => {
 });
 
 export const POST = withErrorHandler(async (request) => {
-  const decodedToken = await authenticateRequest(request);
+  const decodedToken = await requireAuth(request);
 
   const limited = await checkRateLimit(decodedToken.uid);
   if (!limited.allowed) {
@@ -79,7 +81,7 @@ export const POST = withErrorHandler(async (request) => {
 });
 
 export const DELETE = withErrorHandler(async (request) => {
-  const decodedToken = await authenticateRequest(request);
+  const decodedToken = await requireAuth(request);
   const { searchParams } = new URL(request.url);
   const activityId = searchParams.get("id");
 

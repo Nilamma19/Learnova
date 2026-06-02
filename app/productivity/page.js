@@ -898,7 +898,7 @@ export default function ProductivityPage() {
   return (
     <div
       className={`min-h-screen bg-gradient-to-br ${ambientGradient} ${isDark ? "text-white" : "text-slate-900"
-      } relative overflow-hidden transition-all duration-500`}
+      } relative overflow-x-hidden transition-all duration-500`}
     >
       <Navbar />
       
@@ -1061,7 +1061,9 @@ export default function ProductivityPage() {
                   )}
                 </div>
               </motion.div>
-              <ProductivityTrendsSection isDark={isDark} w-full overflow-hidden/>
+              <div className="w-full overflow-hidden">
+                <ProductivityTrendsSection isDark={isDark} />
+              </div>
             </div>
 
             <div className="space-y-8">

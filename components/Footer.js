@@ -1,10 +1,10 @@
 "use client";
-
-import { useState } from "react";
+import { FaDiscord } from "react-icons/fa";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { 
-  BookOpen, ArrowUpRight, Github, Twitter, 
-  Linkedin, Youtube, Heart, Sparkles, Keyboard, ExternalLink 
+import {
+  BookOpen, ArrowUpRight, Github,
+  Linkedin, Youtube, Heart, Sparkles, Keyboard, ExternalLink
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { CONTACT_INFO } from "../constants/contact";
@@ -13,10 +13,11 @@ import { CONTACT_INFO } from "../constants/contact";
 function FooterLink({ href, children, external = false }) {
   const LinkComponent = external ? "a" : Link;
   const externalProps = external ? { target: "_blank", rel: "noopener noreferrer" } : {};
+  
 
   return (
     <motion.li whileHover={{ x: 4 }} transition={{ type: "spring", stiffness: 300, damping: 20 }}>
-      <LinkComponent href={href} {...externalProps} className="group flex items-center gap-2 text-sm text-slate-300 transition-colors duration-300 hover:text-white">
+      <LinkComponent href={href} {...externalProps} className="group flex items-center gap-2 text-sm text-slate-300 transition-colors duration-200 ease-out hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-sm">
         <span className="relative">
           {children}
           <span className="absolute -bottom-0.5 left-0 h-px w-0 bg-gradient-to-r from-purple-400 to-blue-400 transition-all duration-300 group-hover:w-full" />
@@ -28,17 +29,26 @@ function FooterLink({ href, children, external = false }) {
 }
 
 // Social icon button
+function XIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.747l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.91-5.622Zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
+
 function SocialIcon({ href, icon: Icon, label, glowColor = "purple" }) {
   const glowMap = {
     purple: "hover:shadow-purple-500/30 hover:border-purple-500/50 hover:text-purple-400",
     blue: "hover:shadow-blue-500/30 hover:border-blue-500/50 hover:text-blue-400",
     red: "hover:shadow-red-500/30 hover:border-red-500/50 hover:text-red-400",
   };
+  
 
   return (
     <motion.a href={href} target="_blank" rel="noopener noreferrer" aria-label={label}
       whileHover={{ scale: 1.15, y: -3 }} whileTap={{ scale: 0.95 }}
-      className={`flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 backdrop-blur-sm transition-all duration-300 hover:shadow-lg ${glowMap[glowColor]}`}
+      className={`flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 backdrop-blur-sm transition-all duration-200 ease-out hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${glowMap[glowColor]}`}
     >
       <Icon size={18} />
     </motion.a>
@@ -48,7 +58,12 @@ function SocialIcon({ href, icon: Icon, label, glowColor = "purple" }) {
 const itemVariants = { hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5 } } };
 
 export default function Footer() {
-  const currentYear = new Date().getFullYear();
+  const [currentYear, setCurrentYear] = useState(2026);
+
+  useEffect(() => {
+    setCurrentYear(new Date().getFullYear());
+  }, []);
+
   const [hoveredBrandLetter, setHoveredBrandLetter] = useState(null);
 
   const quickLinks = [
@@ -71,7 +86,7 @@ export default function Footer() {
 
   const socialLinks = [
     { icon: Github, href: "https://github.com/Premshaw23/Learnova", label: "GitHub", glow: "purple" },
-    { icon: Twitter, href: "https://twitter.com/learnova", label: "Twitter", glow: "blue" },
+    { icon: XIcon, href: "https://x.com/learnova", label: "X", glow: "blue" },
     { icon: Linkedin, href: "https://linkedin.com/company/learnova", label: "LinkedIn", glow: "blue" },
     { icon: Youtube, href: "https://youtube.com/@learnova", label: "YouTube", glow: "red" },
   ];
@@ -100,12 +115,24 @@ export default function Footer() {
                 Get Started <ArrowUpRight className="h-4 w-4" />
               </Link>
             </div>
-            <div className="flex items-center gap-3">
-              {socialLinks.map((s) => <SocialIcon key={s.label} {...s} />)}
-            </div>
-          </div>
+           <div className="flex items-center gap-3">
+  {socialLinks.map((s) => (
+    <SocialIcon key={s.label} {...s} />
+  ))}
 
-          {/* Quick Links */}
+  <motion.a
+    href="https://discord.gg/"
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label="Discord"
+    whileHover={{ scale: 1.15, y: -3 }}
+    whileTap={{ scale: 0.95 }}
+    className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/30 hover:border-purple-500/50 hover:text-purple-400"
+  >
+    <FaDiscord size={18} />
+  </motion.a>
+</div>
+      </div>    {/* Quick Links */}
           <div className="space-y-5">
             <h3 className="text-sm font-semibold uppercase tracking-[0.28em] text-white/90">Quick Links</h3>
             <ul className="space-y-3">
@@ -119,10 +146,19 @@ export default function Footer() {
           {/* Sections */}
           <div className="space-y-5">
             <h3 className="text-sm font-semibold uppercase tracking-[0.28em] text-white/90">Sections</h3>
-            <ul className="space-y-3">
-              {sectionLinks.map((link) => <FooterLink key={link.href} href={link.href}>{link.label}</FooterLink>)}
-            </ul>
+           
+           <ul className="space-y-3">
+ {sectionLinks.map((link) => (
+  <FooterLink key={link.href} href={link.href}>
+    {link.label}
+  </FooterLink>
+))}
+
+  
+  
+</ul>
           </div>
+          
 
           {/* Contact Column with Integrated Modern Campus Card */}
           <div className="space-y-6">

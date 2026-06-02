@@ -24,6 +24,8 @@ import { toast } from "react-hot-toast";
 
 // Fetch the master courses list
 import { COURSES } from "@/lib/courses";
+import { apiFetch } from "@/lib/apiClient";
+
 
 export default function CurriculumBuilder() {
   const [courses] = useState(COURSES);
@@ -61,7 +63,7 @@ export default function CurriculumBuilder() {
           }
         }
 
-        const res = await fetch(`/api/courses/curriculum/${selectedCourseId}`);
+        const res = await apiFetch(`/api/courses/curriculum/${selectedCourseId}`);
         const data = await res.json();
         if (data.success) {
           setModules(data.modules);
@@ -97,7 +99,7 @@ export default function CurriculumBuilder() {
     });
 
     try {
-      const res = await fetch("/api/courses/curriculum/sync", {
+      const res = await apiFetch("/api/courses/curriculum/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -503,12 +505,14 @@ export default function CurriculumBuilder() {
                         <button
                           onClick={saveEditing}
                           className="p-1.5 bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-emerald-400 hover:bg-emerald-500/30 transition-colors"
+                          aria-label="Save structural container changes"
                         >
                           <Check className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => setEditingEntity(null)}
                           className="p-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-400 hover:bg-zinc-700 transition-colors"
+                          aria-label="Cancel structural container editing"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -523,6 +527,7 @@ export default function CurriculumBuilder() {
                           onClick={() => startEditing("module", mod.id, mod.title)}
                           className="opacity-0 group-hover/title:opacity-100 p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-zinc-200 transition-all"
                           title="Rename Module"
+                          aria-label="Rename structural container"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
@@ -536,6 +541,7 @@ export default function CurriculumBuilder() {
                       onClick={() => toggleModuleExpand(mod.id)}
                       className="p-1.5 hover:bg-zinc-800/80 rounded-xl text-zinc-400 hover:text-zinc-100 transition-all border border-transparent hover:border-zinc-800"
                       title={isExpanded ? "Collapse Module" : "Expand Module"}
+                      aria-label={isExpanded ? "Collapse structural container" : "Expand structural container"}
                     >
                       {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </button>
@@ -543,6 +549,7 @@ export default function CurriculumBuilder() {
                       onClick={() => handleDeleteModule(mod.id)}
                       className="p-1.5 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 rounded-xl text-zinc-500 hover:text-red-400 transition-all"
                       title="Delete Module"
+                      aria-label="Delete structural container"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -602,12 +609,14 @@ export default function CurriculumBuilder() {
                                   <button
                                     onClick={saveEditing}
                                     className="p-1 bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-emerald-400 hover:bg-emerald-500/30 transition-colors"
+                                    aria-label="Save content changes"
                                   >
                                     <Check className="w-3.5 h-3.5" />
                                   </button>
                                   <button
                                     onClick={() => setEditingEntity(null)}
                                     className="p-1 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-400 hover:bg-zinc-700 transition-colors"
+                                    aria-label="Cancel content editing"
                                   >
                                     <X className="w-3.5 h-3.5" />
                                   </button>
@@ -623,6 +632,7 @@ export default function CurriculumBuilder() {
                                       onClick={() => startEditing("lesson", lesson.id, lesson.title, mod.id)}
                                       className="opacity-0 group-hover/lesson:opacity-100 p-0.5 hover:bg-zinc-900 rounded text-zinc-500 hover:text-zinc-300 transition-all"
                                       title="Rename Lesson"
+                                      aria-label="Rename content item"
                                     >
                                       <Edit3 className="w-3 h-3" />
                                     </button>
@@ -660,6 +670,7 @@ export default function CurriculumBuilder() {
                                 onClick={() => handleDeleteLesson(mod.id, lesson.id)}
                                 className="p-1 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 rounded-md text-zinc-600 hover:text-red-400 opacity-0 group-hover/lesson:opacity-100 transition-all duration-150"
                                 title="Delete Lesson"
+                                aria-label="Delete content item"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>

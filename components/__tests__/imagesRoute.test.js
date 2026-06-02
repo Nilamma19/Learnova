@@ -1,13 +1,19 @@
 import { ObjectId } from "mongodb";
 import { GET, POST } from "@/app/api/images/route";
 import { requireAuth } from "@/lib/rbac";
+import { connectDb } from "@/lib/mongodb";
+import { getUserProfile } from "@/lib/firebase-admin";
+import { ForbiddenError, NotFoundError } from "@/lib/errors";
+import { checkRateLimit } from "@/lib/rateLimit";
 import {
   extractImageFileFromFormData,
   fetchAndValidateImage,
   getUserImageFromDb,
   updateUserImageInDb,
   uploadAvatarToBlob,
+  validateFaceDescriptor,
 } from "@/lib/images/imagesService";
+import { del } from "@vercel/blob";
 
 vi.mock("next/server", () => {
   class MockNextResponse {
@@ -36,12 +42,20 @@ vi.mock("@/lib/rbac", () => ({
   requireAuth: vi.fn(),
 }));
 
+vi.mock("@/lib/rateLimit", () => ({
+  checkRateLimit: vi.fn(),
+}));
+
 vi.mock("@/lib/mongodb", () => ({
   connectDb: vi.fn(),
 }));
 
 vi.mock("@/lib/firebase-admin", () => ({
   getUserProfile: vi.fn(),
+}));
+
+vi.mock("@vercel/blob", () => ({
+  del: vi.fn(),
 }));
 
 vi.mock("@/lib/images/imagesService", () => ({
@@ -59,11 +73,11 @@ vi.mock("@/lib/images/imagesService", () => ({
 }));
 
 describe("/api/images route orchestration", () => {
-  let connectDb;
-
   beforeEach(() => {
     vi.clearAllMocks();
-    connectDb = require("@/lib/mongodb").connectDb;
+    validateFaceDescriptor.mockReturnValue(null);
+    checkRateLimit.mockResolvedValue({ allowed: true, remaining: 10 });
+    getUserProfile.mockResolvedValue(null);
   });
 
   test("GET returns own image when requested id matches authenticated user", async () => {
@@ -74,6 +88,7 @@ describe("/api/images route orchestration", () => {
     connectDb.mockResolvedValue({
       collection: vi.fn().mockReturnValue({
         findOne: vi.fn().mockResolvedValue({ _id: userId }),
+        createIndex: vi.fn(),
       }),
     });
     getUserImageFromDb.mockResolvedValue("https://public.blob.vercel-storage.com/a.jpg");
@@ -93,6 +108,9 @@ describe("/api/images route orchestration", () => {
     expect(requireAuth).toHaveBeenCalledWith(req);
     expect(getUserImageFromDb).toHaveBeenCalledWith({
       id: userId.toString(),
+      callerUid: uid,
+      callerRole: "student",
+      callerInstituteId: undefined,
     });
     expect(fetchAndValidateImage).toHaveBeenCalledWith(
       "https://public.blob.vercel-storage.com/a.jpg"
@@ -101,17 +119,17 @@ describe("/api/images route orchestration", () => {
 
   test("GET rejects when user requests another user's image and is not admin or teacher", async () => {
     const uid = "firebase-uid-1";
-    const ownId = new ObjectId();
     const otherId = new ObjectId();
 
     requireAuth.mockResolvedValue({ uid });
     connectDb.mockResolvedValue({
       collection: vi.fn().mockReturnValue({
         findOne: vi.fn().mockResolvedValue({ _id: ownId }),
+        createIndex: vi.fn(),
       }),
     });
-    const { getUserProfile } = require("@/lib/firebase-admin");
     getUserProfile.mockResolvedValue({ role: "student" });
+    getUserImageFromDb.mockRejectedValue(new ForbiddenError("You do not have permission to view this image"));
 
     const req = {
       url: `https://learnova.test/api/images?id=${otherId.toString()}`,
@@ -122,21 +140,20 @@ describe("/api/images route orchestration", () => {
     const body = await response.json();
 
     expect(response.status).toBe(403);
-    expect(body.error.message).toBe("You can only view your own profile image");
+    expect(body.error).toBe("You do not have permission to view this image");
   });
 
   test("GET allows admin to view any user's image", async () => {
     const uid = "admin-uid-1";
-    const ownId = new ObjectId();
     const otherId = new ObjectId();
 
     requireAuth.mockResolvedValue({ uid });
     connectDb.mockResolvedValue({
       collection: vi.fn().mockReturnValue({
         findOne: vi.fn().mockResolvedValue({ _id: ownId }),
+        createIndex: vi.fn(),
       }),
     });
-    const { getUserProfile } = require("@/lib/firebase-admin");
     getUserProfile.mockResolvedValue({ role: "admin" });
     getUserImageFromDb.mockResolvedValue("https://public.blob.vercel-storage.com/admin-view.jpg");
     fetchAndValidateImage.mockResolvedValue({
@@ -154,21 +171,28 @@ describe("/api/images route orchestration", () => {
     expect(response.status).toBe(200);
     expect(getUserImageFromDb).toHaveBeenCalledWith({
       id: otherId.toString(),
+      callerUid: uid,
+      callerRole: "admin",
+      callerInstituteId: undefined,
     });
   });
 
   test("GET allows teacher to view any user's image", async () => {
     const uid = "teacher-uid-1";
-    const ownId = new ObjectId();
     const otherId = new ObjectId();
 
     requireAuth.mockResolvedValue({ uid });
+    
+    const findOneMock = vi.fn()
+      .mockResolvedValueOnce({ _id: ownId, instituteId })
+      .mockResolvedValueOnce({ _id: otherId, instituteId });
+
     connectDb.mockResolvedValue({
       collection: vi.fn().mockReturnValue({
-        findOne: vi.fn().mockResolvedValue({ _id: ownId }),
+        findOne: findOneMock,
+        createIndex: vi.fn(),
       }),
     });
-    const { getUserProfile } = require("@/lib/firebase-admin");
     getUserProfile.mockResolvedValue({ role: "teacher" });
     getUserImageFromDb.mockResolvedValue("https://public.blob.vercel-storage.com/teacher-view.jpg");
     fetchAndValidateImage.mockResolvedValue({
@@ -193,6 +217,7 @@ describe("/api/images route orchestration", () => {
     connectDb.mockResolvedValue({
       collection: vi.fn().mockReturnValue({
         findOne: vi.fn().mockResolvedValue(null),
+        createIndex: vi.fn(),
       }),
     });
 
@@ -205,7 +230,7 @@ describe("/api/images route orchestration", () => {
     const body = await response.json();
 
     expect(response.status).toBe(404);
-    expect(body.error.message).toBe("User not found");
+    expect(body.error).toBe("User not found");
   });
 
   test("POST orchestrates auth, file extraction, upload and DB update", async () => {
@@ -224,7 +249,10 @@ describe("/api/images route orchestration", () => {
     const req = {
       headers: { get: vi.fn() },
       formData: vi.fn().mockResolvedValue({
-        get: vi.fn().mockReturnValue(fakeFile),
+        get: vi.fn((key) => {
+          if (key === "faceDescriptor") return null;
+          return fakeFile;
+        }),
       }),
     };
 
@@ -244,6 +272,39 @@ describe("/api/images route orchestration", () => {
     expect(updateUserImageInDb).toHaveBeenCalledWith({
       firebaseUid: "firebase-uid-1",
       imageUrl: "https://public.blob.vercel-storage.com/avatar.jpg",
+      faceDescriptor: null,
     });
+  });
+
+  test("POST rolls back uploaded blob when Mongo profile is missing", async () => {
+    const fakeFile = {
+      type: "image/jpeg",
+      size: 1024,
+      arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(1024)),
+    };
+
+    requireAuth.mockResolvedValue({ uid: "firebase-uid-1" });
+    extractImageFileFromFormData.mockReturnValue(fakeFile);
+    uploadAvatarToBlob.mockResolvedValue({
+      blobUrl: "https://public.blob.vercel-storage.com/avatar.jpg",
+    });
+    updateUserImageInDb.mockRejectedValue(new NotFoundError("User profile not found"));
+
+    const req = {
+      headers: { get: vi.fn() },
+      formData: vi.fn().mockResolvedValue({
+        get: vi.fn((key) => {
+          if (key === "faceDescriptor") return null;
+          return fakeFile;
+        }),
+      }),
+    };
+
+    const response = await POST(req);
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body.error).toBe("User profile not found");
+    expect(del).toHaveBeenCalledWith("https://public.blob.vercel-storage.com/avatar.jpg");
   });
 });

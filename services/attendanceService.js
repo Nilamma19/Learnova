@@ -11,12 +11,29 @@ import {
 import { auth, db } from "@/lib/firebaseConfig";
 
 import { recalculateAttendanceRate } from "./statsService";
-import { saveToOutbox } from "@/lib/offlineStore";
-import { registerBackgroundSync } from "@/lib/syncService";
+import { handleOfflineRequest, triggerOfflineSync } from "@/utils/offlineRequestHandler";
 import { getTodayKeyLocal } from "@/lib/dateUtils";
 
 function getTodayKey() {
   return getTodayKeyLocal();
+}
+
+function unwrapApiData(payload) {
+  return payload?.success === true && payload?.data !== undefined
+    ? payload.data
+    : payload;
+}
+
+function getApiErrorMessage(payload, fallback) {
+  if (typeof payload?.error === "string") {
+    return payload.error;
+  }
+
+  if (payload?.error?.message) {
+    return payload.error.message;
+  }
+
+  return payload?.message || fallback;
 }
 
 /**
@@ -71,15 +88,17 @@ export async function recordAttendance({
   if (typeof window !== "undefined" && !navigator.onLine) {
     console.warn("Device is offline. Queuing attendance locally.");
 
-    await saveToOutbox({
-      userId,
-      studentName,
-      email,
-      confidenceScore: confidenceScore ?? 0,
-      date: todayKey,
+    await handleOfflineRequest("/api/attendance/record", {
+      method: "POST",
+      body: JSON.stringify({
+        userId,
+        studentName,
+        email,
+        confidenceScore: confidenceScore ?? 0,
+        date: todayKey,
+      }),
+      headers: { "Content-Type": "application/json" }
     });
-
-    await registerBackgroundSync();
 
     return {
       alreadyRecorded: false,
@@ -124,10 +143,7 @@ export async function recordAttendance({
 
     try {
       const errorData = await response.json();
-
-      if (errorData?.message) {
-        errorMessage = errorData.message;
-      }
+      errorMessage = getApiErrorMessage(errorData, errorMessage);
     } catch {
     // Ignore invalid JSON responses
     }
@@ -135,7 +151,7 @@ export async function recordAttendance({
     throw new Error(errorMessage);
   }
 
-  const data = await response.json();
+  const data = unwrapApiData(await response.json());
   const isAlreadyRecorded = !!(data && data.alreadyRecorded);
 
   const newRate = isAlreadyRecorded ? null : await recalculateAttendanceRate(userId);

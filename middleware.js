@@ -1,45 +1,26 @@
 import { NextResponse } from "next/server";
+import * as jose from "jose";
+import { validateCsrfRequest } from "@/lib/csrf";
 
 const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 const FIREBASE_AUTH_DOMAIN = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
 const FIREBASE_API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+const FIREBASE_CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL;
+const FIREBASE_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY;
 
-// ─── Rate Limiting ────────────────────────────────────────────────────────────
+// Allowed clock skew when validating JWT `exp` (seconds). Keep small to limit
+// acceptance window for expired or revoked tokens.
+const CLOCK_TOLERANCE_SECONDS = 60;
 
-const rateLimitMap = new Map();
-const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-const RATE_LIMIT_MAX = 5;
 
-const AUTH_RATE_LIMITED_PATHS = [
-  "/api/auth/login",
-  "/api/auth/signup",
-  "/api/auth/forgot-password",
+
+const PUBLIC_API_PATHS = [
+  "/api/auth/csrf",
   "/api/auth/reset-password",
-  "/api/auth/verify-otp",
+  "/api/health",
 ];
 
-function isAuthRoute(pathname) {
-  return AUTH_RATE_LIMITED_PATHS.some((path) => pathname.startsWith(path));
-}
 
-function rateLimit(ip, pathname) {
-  const key = `${ip}_${pathname}`;
-  const now = Date.now();
-  const entry = rateLimitMap.get(key);
-
-  if (!entry || now > entry.resetTime) {
-    rateLimitMap.set(key, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
-    return { allowed: true, remaining: RATE_LIMIT_MAX - 1 };
-  }
-
-  if (entry.count >= RATE_LIMIT_MAX) {
-    const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
-    return { allowed: false, remaining: 0, retryAfter };
-  }
-
-  entry.count += 1;
-  return { allowed: true, remaining: RATE_LIMIT_MAX - entry.count };
-}
 
 // ─── CSP ──────────────────────────────────────────────────────────────────────
 
@@ -55,9 +36,11 @@ function buildPageCsp() {
     frameSrc.push(`https://${FIREBASE_AUTH_DOMAIN}`);
   }
 
-  return [
+  const cspDirectives = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com https://www.googletagmanager.com",
+    process.env.NODE_ENV === "development"
+  ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com https://www.googletagmanager.com"
+  : "script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com https://www.googletagmanager.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.public.blob.vercel-storage.com https://github.com https://www.google-analytics.com",
@@ -69,14 +52,132 @@ function buildPageCsp() {
     "base-uri 'self'",
     "form-action 'self'",
     "upgrade-insecure-requests",
-  ].join("; ");
+  ];
+
+  if (process.env.CSP_REPORT_URL) {
+    cspDirectives.push(`report-uri ${process.env.CSP_REPORT_URL}`);
+    cspDirectives.push(`report-to ${process.env.CSP_REPORT_URL}`);
+  }
+
+  return cspDirectives.join("; ");
 }
 
-// ─── Firebase Token Verification ─────────────────────────────────────────────
+// ─── Firebase Token Verification via jose ────────────────────────────────────
+// Uses the jose library for local JWT signature verification instead of
+// calling the external identitytoolkit REST API on every request.
+// This eliminates 100-300ms latency per request and removes the dependency
+// on Google's API availability.
 
+let cachedPublicKey = null;
+let publicKeyFetchTime = 0;
+const PUBLIC_KEY_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Fetches the Firebase public keys for JWT verification.
+ * Caches the keys for 1 hour to avoid repeated HTTP calls.
+ * Falls back to the identitytoolkit endpoint if key fetching fails.
+ */
+async function getFirebasePublicKeys() {
+  const now = Date.now();
+  if (cachedPublicKey && now - publicKeyFetchTime < PUBLIC_KEY_CACHE_TTL_MS) {
+    return cachedPublicKey;
+  }
+
+  try {
+    const response = await fetch(
+      "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+    );
+    if (!response.ok) throw new Error("Failed to fetch public keys");
+    const data = await response.json();
+    cachedPublicKey = data;
+    publicKeyFetchTime = now;
+    return data;
+  } catch {
+    return cachedPublicKey;
+  }
+}
+
+/**
+ * Verifies a Firebase ID token using local JWT verification via jose.
+ * Falls back to the identitytoolkit REST API if local verification fails.
+ */
 async function verifyIdToken(token) {
   try {
-    if (!FIREBASE_PROJECT_ID || !FIREBASE_API_KEY) return null;
+    // Quick expiry check based on the token's `exp` claim
+    const getJwtExp = (t) => {
+      try {
+        const parts = t.split(".");
+        if (parts.length < 2) return null;
+        let payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+        while (payload.length % 4) payload += "=";
+        let jsonStr;
+        if (typeof atob === "function") {
+          jsonStr = atob(payload);
+        } else if (typeof Buffer !== "undefined") {
+          jsonStr = Buffer.from(payload, "base64").toString("utf8");
+        } else {
+          return null;
+        }
+        const parsed = JSON.parse(jsonStr);
+        return { exp: typeof parsed.exp === "number" ? parsed.exp : null, kid: parsed.kid || null };
+      } catch {
+        return null;
+      }
+    };
+
+    const jwtMeta = getJwtExp(token);
+    if (jwtMeta?.exp) {
+      const now = Math.floor(Date.now() / 1000);
+      if (now > jwtMeta.exp + CLOCK_TOLERANCE_SECONDS) {
+        return null;
+      }
+    }
+
+    if (!FIREBASE_PROJECT_ID) return null;
+
+    // Try local verification with jose
+    const publicKeys = await getFirebasePublicKeys();
+    if (publicKeys && Object.keys(publicKeys).length > 0) {
+      try {
+        // Decode header to get kid
+        const headerParts = token.split(".");
+        if (headerParts.length >= 1) {
+          let headerPayload = headerParts[0].replace(/-/g, "+").replace(/_/g, "/");
+          while (headerPayload.length % 4) headerPayload += "=";
+          let headerJson;
+          if (typeof atob === "function") {
+            headerJson = atob(headerPayload);
+          } else {
+            headerJson = Buffer.from(headerPayload, "base64").toString("utf8");
+          }
+          const header = JSON.parse(headerJson);
+          const kid = header.kid;
+
+          if (kid && publicKeys[kid]) {
+            const publicKey = await jose.importSPKI(publicKeys[kid], "RS256");
+            const { payload } = await jose.jwtVerify(token, publicKey, {
+              issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
+              audience: FIREBASE_PROJECT_ID,
+              clockTolerance: CLOCK_TOLERANCE_SECONDS,
+            });
+
+            return {
+              sub: payload.sub,
+              uid: payload.sub,
+              email: payload.email,
+              email_verified: payload.email_verified === true,
+              role: payload.role || null,
+              iat: payload.iat,
+            };
+          }
+        }
+      } catch {
+        // Local verification failed, fall through to REST API
+      }
+    }
+
+    // Fallback: identitytoolkit REST API (only if local verification fails)
+    if (!FIREBASE_API_KEY) return null;
 
     const response = await fetch(
       `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_API_KEY}`,
@@ -123,33 +224,11 @@ async function verifyIdToken(token) {
 
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
+  const isUnsafeMethod = !["GET", "HEAD", "OPTIONS"].includes(request.method);
 
-  // ── 1. Rate limiting for auth API routes ──
-  if (isAuthRoute(pathname)) {
-    const ip =
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      request.headers.get("x-real-ip") ||
-      "unknown";
-
-    const { allowed, remaining, retryAfter } = rateLimit(ip, pathname);
-
-    if (!allowed) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: `Too many attempts. Please try again in ${retryAfter} seconds.`,
-        },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": String(retryAfter),
-            "X-RateLimit-Limit": String(RATE_LIMIT_MAX),
-            "X-RateLimit-Remaining": "0",
-          },
-        }
-      );
-    }
-  }
+  // NOTE: CSRF validation applies only for cookie-authenticated requests.
+  // Requests authenticated via Authorization: Bearer <token> are not CSRF-vulnerable.
+  // Defer CSRF validation until after token extraction/verification below.
 
   // ── 2. CSP: only for HTML pages, not assets or APIs ──
   const isPage =
@@ -168,7 +247,7 @@ export async function middleware(request) {
   if (!authToken) {
     authToken = request.cookies.get("authToken")?.value;
   }
-  
+
   // Cryptographically verify the token — decoding alone is not sufficient
   let isTokenValid = false;
   let isEmailVerified = false;
@@ -183,12 +262,26 @@ export async function middleware(request) {
     }
   }
 
+  // Enforce CSRF only for unsafe API methods when the request is authenticated via cookie.
+  const tokenFromCookie = request.cookies.get("authToken")?.value || null;
+  if (pathname.startsWith("/api/") && isUnsafeMethod && tokenFromCookie) {
+    try {
+      validateCsrfRequest(request);
+    } catch (error) {
+      return NextResponse.json(
+        { error: error.message || "Forbidden: invalid CSRF token" },
+        { status: error.statusCode || 403 }
+      );
+    }
+  }
+
   // ── 5. Role-protected dashboard routes ──
   const protectedDashboards = [
     { prefix: "/student", apiPrefix: "/api/student", role: "student", defaultPath: "/student/dashboard" },
     { prefix: "/teacher", apiPrefix: "/api/teacher", role: "teacher", defaultPath: "/teacher/dashboard" },
     { prefix: "/admin", apiPrefix: "/api/admin", role: "admin", defaultPath: "/admin/dashboard" },
     { prefix: "/institute", apiPrefix: "/api/institute", role: "institute", defaultPath: "/institute/dashboard" },
+    { prefix: "/parent", apiPrefix: "/api/parent", role: "parent", defaultPath: "/parent/dashboard" },
   ];
 
   const matchedDashboard = protectedDashboards.find((dashboard) =>
@@ -197,7 +290,11 @@ export async function middleware(request) {
   );
 
   // General API route protection (non-dashboard routes under /api/)
-  if (pathname.startsWith("/api/") && pathname !== "/api/check-groq-config") {
+  if (
+    pathname.startsWith("/api/") &&
+    pathname !== "/api/check-groq-config" &&
+    !PUBLIC_API_PATHS.some((path) => pathname.startsWith(path))
+  ) {
     if (!matchedDashboard) {
       if (!isTokenValid) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -266,11 +363,16 @@ export async function middleware(request) {
     }
   }
 
-  // ── 9. Attach CSP header for pages ──
+  // ── 9. Attach CSP and standard Security headers ──
   const response = NextResponse.next({ request: { headers: requestHeaders } });
 
   if (isPage) {
     response.headers.set("Content-Security-Policy", buildPageCsp());
+    response.headers.set("X-Frame-Options", "SAMEORIGIN");
+    response.headers.set("X-Content-Type-Options", "nosniff");
+    response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+    response.headers.set("Permissions-Policy", "camera=(self), microphone=(), geolocation=()");
+    response.headers.set("X-XSS-Protection", "1; mode=block");
   }
 
   return response;

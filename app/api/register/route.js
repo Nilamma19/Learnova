@@ -2,10 +2,13 @@ import { put, del } from "@vercel/blob";
 import { randomUUID } from "crypto";
 import { connectDb } from "@/lib/mongodb";
 import { jsonError, jsonSuccess } from "@/lib/api-response";
-import { withErrorHandler, authenticateRequest } from "@/lib/error-handler";
+import { withErrorHandler } from "@/lib/error-handler";
+import { requireAuth } from "@/lib/rbac";
 import { AppError, ValidationError, ForbiddenError } from "@/lib/errors";
 import { z } from "zod";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { executeSaga, findExistingOperation, markIdempotent } from "@/lib/transactionCoordinator";
+import { validateFaceDescriptor } from "@/lib/images/imagesService";
 
 export const dynamic = "force-dynamic";
 
@@ -127,14 +130,20 @@ export const POST =
       }
 
       // Authenticate
-      const decodedToken =
-        await authenticateRequest(
-          req
-        );
+      const decodedToken = await requireAuth(req);
 
       // Form data
       const formData =
         await req.formData();
+
+      // Check for idempotency key to prevent duplicate registrations on retry
+      const idempotencyKey = formData.get("idempotencyKey");
+      if (idempotencyKey && typeof idempotencyKey === "string") {
+        const existing = await findExistingOperation(idempotencyKey);
+        if (existing?.idempotentResult) {
+          return jsonSuccess(existing.idempotentResult, 201);
+        }
+      }
 
       const rawName =
         formData.get(
@@ -160,12 +169,9 @@ export const POST =
       let faceDescriptor = null;
       if (rawFaceDescriptor) {
         try {
-          faceDescriptor = JSON.parse(rawFaceDescriptor);
-          if (!Array.isArray(faceDescriptor)) {
-            throw new Error();
-          }
-        } catch {
-          return jsonError("Invalid face descriptor format", 400);
+          faceDescriptor = validateFaceDescriptor(rawFaceDescriptor);
+        } catch (error) {
+          return jsonError(error.message || "Invalid face descriptor format", 400);
         }
       }
 
@@ -325,90 +331,96 @@ export const POST =
 
       const fileName = `labels/${safeName}/${randomUUID()}.${fileExtension}`;
 
-      // Upload blob
-      const blob =
-        await put(
-          fileName,
-          buffer,
+      const sagaKey = idempotencyKey || `register_${decodedToken.uid}_${Date.now()}`;
+
+      let uploadedBlobUrl = null;
+      let insertedUser = null;
+
+      const sagaResult = await executeSaga({
+        operationType: "register",
+        uid: decodedToken.uid,
+        steps: [
           {
-            contentType:
-              file.type,
-
-            access:
-              "public",
-          }
-        );
-
-      try {
-        const user = {
-          name: sanitizedName,
-          rollNo: sanitizedRollNo,
-          email,
-          image:
-            blob.url,
-
-          firebaseUid:
-            decodedToken.uid,
-        };
-
-        if (faceDescriptor) {
-          user.faceDescriptor = faceDescriptor;
-        }
-
-        const result =
-          await users.insertOne(
-            user
-          );
-
-        return jsonSuccess(
-          {
-            message:
-              "User registered successfully",
-
-            user: {
-              _id:
-                result.insertedId,
-
-              name:
-                user.name,
-
-              rollNo:
-                user.rollNo,
-
-              email:
-                user.email,
+            name: "upload_blob",
+            execute: async (ctx) => {
+              const blob =
+                await put(
+                  fileName,
+                  buffer,
+                  {
+                    contentType:
+                      file.type,
+                    access:
+                      "public",
+                  }
+                );
+              ctx._blobUrl = blob.url;
+              return blob;
+            },
+            compensate: async (ctx) => {
+              if (ctx._blobUrl) {
+                try {
+                  await del(ctx._blobUrl);
+                } catch {}
+              }
             },
           },
-          201
-        );
-      } catch (dbError) {
-        // Clean up orphaned blob upload on any DB failure
-        try {
-          if (blob?.url) {
-            await del(
-              blob.url
-            );
-          }
-        } catch (
-          cleanupError
-        ) {
-          console.error(
-            "Failed cleanup:",
-            cleanupError
-          );
-        }
+          {
+            name: "write_mongodb",
+            execute: async (ctx) => {
+              const user = {
+                name: sanitizedName,
+                rollNo: sanitizedRollNo,
+                email,
+                image: ctx._blobUrl,
+                firebaseUid: decodedToken.uid,
+              };
 
-        // Handle MongoDB E11000 duplicate key error from the unique index.
-        // This is the database-level safety net that catches races where two
-        // concurrent requests both pass the findOne() check above.
-        if (dbError?.code === 11000) {
-          throw new AppError(
-            "User already registered",
-            409
-          );
-        }
+              if (faceDescriptor) {
+                user.faceDescriptor = faceDescriptor;
+              }
 
-        throw dbError;
+              const result =
+                await users.insertOne(
+                  user
+                );
+
+              ctx._insertedUser = {
+                _id: result.insertedId,
+                name: user.name,
+                rollNo: user.rollNo,
+                email: user.email,
+              };
+            },
+            compensate: async (ctx) => {
+              if (ctx._insertedUser?._id) {
+                try {
+                  await users.deleteOne({ _id: ctx._insertedUser._id });
+                } catch {}
+              }
+            },
+          },
+        ],
+      });
+
+      if (!sagaResult.success) {
+        // Handle MongoDB E11000 duplicate key error from the unique index
+        if (sagaResult.error?.includes("E11000") || sagaResult.error?.includes("duplicate key")) {
+          throw new AppError("User already registered", 409);
+        }
+        throw new AppError("Registration failed. Please try again.", 500);
       }
+
+      const resultPayload = {
+        message: "User registered successfully",
+        user: sagaResult.context._insertedUser,
+      };
+
+      // Mark as idempotent for retry dedup
+      if (idempotencyKey) {
+        await markIdempotent(idempotencyKey, resultPayload);
+      }
+
+      return jsonSuccess(resultPayload, 201);
     }
   );

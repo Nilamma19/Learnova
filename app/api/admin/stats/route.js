@@ -31,7 +31,22 @@ export const GET = withErrorHandler(async (request) => {
     const usersCountSnap = await db.collection("users").count().get();
     totalUsers = usersCountSnap.data().count || 0;
 
-    const instSnapshot = await db.collection("institutes").get();
+    const totalCountSnap = await db.collection("institutes").count().get();
+    const totalInstitutes = totalCountSnap.data().count || 0;
+
+    const activeCountSnap = await db.collection("institutes").where("status", "==", "active").count().get();
+    const activeInstitutes = activeCountSnap.data().count || 0;
+
+    // Fetch the aggregate sum of issues field for pending issues count
+    const allInstitutesSnap = await db.collection("institutes")
+      .select("issues")
+      .get();
+    const pendingIssues = allInstitutesSnap.docs.reduce((sum, doc) => sum + (doc.data().issues || 0), 0);
+
+    const instSnapshot = await db.collection("institutes")
+      .select("name", "status", "issues")
+      .limit(100)
+      .get();
     if (!instSnapshot.empty) {
       institutes = instSnapshot.docs.map((doc) => ({
         id: doc.id,
@@ -41,10 +56,19 @@ export const GET = withErrorHandler(async (request) => {
 
     const metricsDoc = await db.collection("system_metrics").doc("current").get();
     if (metricsDoc.exists) {
-      systemMetrics = metricsDoc.data();
+      const data = metricsDoc.data();
+      systemMetrics = {
+        activeInstances: data.activeInstances ?? 0,
+        totalCourses: data.totalCourses ?? 0,
+        totalUsers: data.totalUsers ?? 0,
+        storageUsed: data.storageUsed ?? "0 GB",
+      };
     }
 
-    const alertsSnapshot = await db.collection("critical_alerts").get();
+    const alertsSnapshot = await db.collection("critical_alerts")
+      .orderBy("createdAt", "desc")
+      .limit(200)
+      .get();
     if (!alertsSnapshot.empty) {
       criticalAlerts = alertsSnapshot.docs.map((doc) => ({
         id: doc.id,
@@ -54,7 +78,11 @@ export const GET = withErrorHandler(async (request) => {
 
     const usageDoc = await db.collection("feature_usage").doc("current").get();
     if (usageDoc.exists) {
-      featureUsage = usageDoc.data();
+      const data = usageDoc.data();
+      featureUsage = {
+        dailyActiveUsers: data.dailyActiveUsers ?? 0,
+        featureBreakdown: data.featureBreakdown ?? {},
+      };
     }
   } catch (err) {
     console.error("Error fetching admin stats from Firestore:", err);
@@ -64,9 +92,7 @@ export const GET = withErrorHandler(async (request) => {
     );
   }
 
-  const totalInstitutes = institutes.length;
-  const activeInstitutes = institutes.filter((inst) => inst.status === "active").length;
-  const pendingIssues = institutes.reduce((sum, inst) => sum + (inst.issues || 0), 0);
+  // Totals are computed from dedicated count queries (not from the truncated list)
 
   const platformStats = {
     totalInstitutes,

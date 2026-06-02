@@ -3,12 +3,13 @@ import { checkRateLimit } from "@/lib/rateLimit";
 import { parseJSON } from "@/lib/error-handler";
 
 const MAX_RESET_PASSWORD_PAYLOAD_BYTES = 1024;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request) {
   try {
     const { email } = await parseJSON(request, MAX_RESET_PASSWORD_PAYLOAD_BYTES);
 
-    if (!email) {
+    if (typeof email !== "string" || !email.trim()) {
       return NextResponse.json(
         { success: false, error: "Email is required" },
         { status: 400 }
@@ -16,6 +17,13 @@ export async function POST(request) {
     }
 
     const sanitizedEmail = email.trim().toLowerCase();
+
+    if (!EMAIL_PATTERN.test(sanitizedEmail)) {
+      return NextResponse.json(
+        { success: false, error: "Please enter a valid email address." },
+        { status: 400 }
+      );
+    }
     
     // Rate limit both by IP and by email to prevent spamming
     const ip = request.headers.get("x-forwarded-for") || "unknown";

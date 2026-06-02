@@ -4,11 +4,14 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
 } from "react";
 import { Navbar } from "./Navbar";
 import Image from "next/image";
 import CurriculumBuilder from "./dashboard/CurriculumBuilder";
 import { useAuth } from "@/hooks/useAuth";
+import { useSafePolling } from "@/hooks/useSafePolling";
+import { useIsMounted } from "@/hooks/useIsMounted";
 import {
   Calendar,
   Clock,
@@ -62,15 +65,19 @@ import {
 } from "lucide-react";
 import ExportDropdown from "@/components/ui/ExportDropdown";
 import { exportToCSV, exportToPDF } from "@/utils/exportUtils";
+import { exportAttendancePDF } from "@/utils/pdf/attendanceReport";
 import dynamic from "next/dynamic";
 import ChartSkeleton from "@/components/ui/ChartSkeleton";
 import DashboardSkeleton from "@/components/ui/DashboardSkeleton";
 import SkeletonCard from "@/components/ui/SkeletonCard";
 import AttendanceAnalytics from "@/components/dashboard/AttendanceAnalytics";
+import AttendanceRiskDashboard from "@/components/dashboard/AttendanceRiskDashboard";
 import { AttendancePasscodeModal } from "./dashboard/AttendancePasscodeModal";
 import { ExceptionRequestsList } from "./dashboard/ExceptionRequestsList";
 import { useAttendance } from "@/hooks/useAttendance";
 import { useCurriculum } from "@/hooks/useCurriculum";
+import { apiFetch } from "@/lib/apiClient";
+
 
 const AttendanceTrendsChart = dynamic(
   () => import("@/components/charts/AttendanceTrendsChart"),
@@ -90,6 +97,7 @@ const TeacherDashboard = () => {
   const [passcodeLoading, setPasscodeLoading] = useState(false);
   const [passcodeExpiresAt, setPasscodeExpiresAt] = useState(null);
   const { user, userProfile } = useAuth();
+  const isMounted = useIsMounted();
 
   const { attendanceStats, studentAttendanceData } = useAttendance({ role: "teacher", user });
   const { curriculum } = useCurriculum({ role: "teacher", user });
@@ -127,9 +135,12 @@ const TeacherDashboard = () => {
   const [weeklySchedule, setWeeklySchedule] = useState({});
   const [isExporting, setIsExporting] = useState(false);
 
+  const isInitialFetchRef = useRef(true);
+
   const handleExport = (format) => {
     setIsExporting(true);
     setTimeout(() => {
+      if (!isMounted()) return;
       try {
         const exportData = studentAttendanceData.map(s => ({
           Date: new Date().toLocaleDateString(),
@@ -143,20 +154,20 @@ const TeacherDashboard = () => {
         if (format === 'csv') {
           exportToCSV(exportData, filename);
         } else {
-          const columns = [
-            { header: 'Date', dataKey: 'Date' },
-            { header: 'Student Name', dataKey: 'Student Name' },
-            { header: 'Roll No', dataKey: 'Roll No' },
-            { header: 'Status', dataKey: 'Status' }
-          ];
-          exportToPDF(exportData, columns, `Attendance Report - ${selectedClass || 'All'}`, filename);
+          exportAttendancePDF(exportData, {
+            className: selectedClass || 'All Classes',
+            teacherName: teacher.name || 'N/A',
+            dateRange: 'Today',
+            instituteName: userProfile?.instituteName || 'Learnova Institute',
+            logoUrl: userProfile?.logoUrl || null,
+          });
         }
         toast.success(`Successfully exported as ${format.toUpperCase()}`);
       } catch (error) {
         console.error("Export failed:", error);
         toast.error("Failed to export report");
       } finally {
-        setIsExporting(false);
+        if (isMounted()) setIsExporting(false);
       }
     }, 500);
   };
@@ -184,7 +195,7 @@ const TeacherDashboard = () => {
         if (!snapshot.empty) {
           const docData = snapshot.docs[0].data();
           if (docData.weeklySchedule) {
-            setWeeklySchedule(docData.weeklySchedule);
+            if (isMounted()) setWeeklySchedule(docData.weeklySchedule);
             return;
           }
         }
@@ -194,28 +205,30 @@ const TeacherDashboard = () => {
       }
       
       // Fallback Mock Schedule
-      setWeeklySchedule({
-        Monday: [
-          { time: "09:00-10:30", subject: "Data Structures", room: "Lab-1", students: 45, semester: "4th", section: "A" },
-          { time: "11:00-12:30", subject: "Web Development", room: "Lab-3", students: 42, semester: "6th", section: "B" },
-          { time: "14:00-15:30", subject: "Database Systems", room: "Lab-2", students: 38, semester: "5th", section: "A" },
-        ],
-        Tuesday: [
-          { time: "09:00-10:30", subject: "Data Structures", room: "Lab-1", students: 45, semester: "4th", section: "A" },
-          { time: "11:00-12:30", subject: "Database Systems", room: "Lab-2", students: 38, semester: "5th", section: "A" },
-        ],
-        Wednesday: [
-          { time: "09:00-10:30", subject: "Web Development", room: "Lab-3", students: 42, semester: "6th", section: "B" },
-          { time: "14:00-15:30", subject: "Data Structures", room: "Lab-1", students: 45, semester: "4th", section: "A" },
-        ],
-        Thursday: [
-          { time: "09:00-10:30", subject: "Database Systems", room: "Lab-2", students: 38, semester: "5th", section: "A" },
-          { time: "11:00-12:30", subject: "Web Development", room: "Lab-3", students: 42, semester: "6th", section: "B" },
-        ],
-        Friday: [
-          { time: "09:00-10:30", subject: "Data Structures", room: "Lab-1", students: 45, semester: "4th", section: "A" },
-        ],
-      });
+      if (isMounted()) {
+        setWeeklySchedule({
+          Monday: [
+            { time: "09:00-10:30", subject: "Data Structures", room: "Lab-1", students: 45, semester: "4th", section: "A" },
+            { time: "11:00-12:30", subject: "Web Development", room: "Lab-3", students: 42, semester: "6th", section: "B" },
+            { time: "14:00-15:30", subject: "Database Systems", room: "Lab-2", students: 38, semester: "5th", section: "A" },
+          ],
+          Tuesday: [
+            { time: "09:00-10:30", subject: "Data Structures", room: "Lab-1", students: 45, semester: "4th", section: "A" },
+            { time: "11:00-12:30", subject: "Database Systems", room: "Lab-2", students: 38, semester: "5th", section: "A" },
+          ],
+          Wednesday: [
+            { time: "09:00-10:30", subject: "Web Development", room: "Lab-3", students: 42, semester: "6th", section: "B" },
+            { time: "14:00-15:30", subject: "Data Structures", room: "Lab-1", students: 45, semester: "4th", section: "A" },
+          ],
+          Thursday: [
+            { time: "09:00-10:30", subject: "Database Systems", room: "Lab-2", students: 38, semester: "5th", section: "A" },
+            { time: "11:00-12:30", subject: "Web Development", room: "Lab-3", students: 42, semester: "6th", section: "B" },
+          ],
+          Friday: [
+            { time: "09:00-10:30", subject: "Data Structures", room: "Lab-1", students: 45, semester: "4th", section: "A" },
+          ],
+        });
+      }
     };
     
     fetchSchedule();
@@ -228,7 +241,7 @@ const TeacherDashboard = () => {
     setIsLoadingRequests(true);
     try {
       const token = await user.getIdToken();
-      const response = await fetch("/api/exceptions/all", {
+      const response = await apiFetch("/api/exceptions/all", {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -255,29 +268,34 @@ const TeacherDashboard = () => {
         reviewedAt: req.reviewedAt || "",
       }));
 
-      setAllRequests(normalizedRequests);
-      setShowAllRequestsModal(true);
+      if (isMounted()) {
+        setAllRequests(normalizedRequests);
+        setShowAllRequestsModal(true);
+      }
     } catch (error) {
-      setRequestsError(error.message);
+      if (isMounted()) setRequestsError(error.message);
     } finally {
-      setIsLoadingRequests(false);
+      if (isMounted()) setIsLoadingRequests(false);
     }
   };
 
-  // Fetch exception requests
-  useEffect(() => {
-    const fetchExceptionRequests = async (isBackground = false) => {
+  // Fetch exception requests using safe polling hook
+  useSafePolling(
+    async (signal) => {
       if (!user) return;
 
-      if (!isBackground) setIsLoadingRequests(true);
+      if (isInitialFetchRef.current) {
+        setIsLoadingRequests(true);
+      }
       setRequestsError(null);
 
       try {
         const token = await user.getIdToken();
-        const response = await fetch("/api/exceptions/list", {
+        const response = await apiFetch("/api/exceptions/list", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          signal,
         });
 
         if (!response.ok) {
@@ -305,23 +323,25 @@ const TeacherDashboard = () => {
 
         setExceptionRequests(normalizedRequests);
       } catch (error) {
-        setRequestsError(error.message);
+        if (error?.name !== "AbortError") {
+          setRequestsError(error.message);
+        }
+        throw error;
       } finally {
-        if (!isBackground) setIsLoadingRequests(false);
+        if (isInitialFetchRef.current) {
+          setIsLoadingRequests(false);
+          isInitialFetchRef.current = false;
+        }
       }
-    };
-
-    fetchExceptionRequests();
-
-    // Poll for updates every 30 seconds
-    const interval = setInterval(() => fetchExceptionRequests(true), 30000);
-    return () => clearInterval(interval);
-  }, [user]);
+    },
+    30000,
+    [user]
+  );
 
   const handleExceptionRequest = async (id, action) => {
     try {
       const token = await user.getIdToken();
-      const response = await fetch("/api/exceptions/update", {
+      const response = await apiFetch("/api/exceptions/update", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -340,22 +360,24 @@ const TeacherDashboard = () => {
         throw new Error(`Failed to update request: ${response.status}`);
       }
 
-      // Update local state
-      setExceptionRequests((prev) =>
-        prev.map((req) =>
-          req.id === id
-            ? {
-                ...req,
-                status: action,
-                comments: `${
-                  action === "approved" ? "Approved" : "Rejected"
-                } by teacher`,
-                reviewedAt: new Date().toISOString(),
-                reviewedBy: user.displayName || user.email,
-              }
-            : req,
-        ),
-      );
+      if (isMounted()) {
+        // Update local state
+        setExceptionRequests((prev) =>
+          prev.map((req) =>
+            req.id === id
+              ? {
+                  ...req,
+                  status: action,
+                  comments: `${
+                    action === "approved" ? "Approved" : "Rejected"
+                  } by teacher`,
+                  reviewedAt: new Date().toISOString(),
+                  reviewedBy: user.displayName || user.email,
+                }
+              : req,
+          ),
+        );
+      }
     } catch (error) {
       toast.error("Failed to update request. Please try again.");
     }
@@ -371,8 +393,12 @@ const TeacherDashboard = () => {
     }, 1000);
 
     return () => {
-      clearInterval(timer);
-      clearTimeout(loadingTimer);
+      if (timer) {
+        clearInterval(timer);
+      }
+      if (loadingTimer) {
+        clearTimeout(loadingTimer);
+      }
     };
   }, []);
 
@@ -420,7 +446,7 @@ const TeacherDashboard = () => {
       }
 
       const token = await user.getIdToken();
-      const res = await fetch("/api/attendance/settings", {
+      const res = await apiFetch("/api/attendance/settings", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -434,16 +460,18 @@ const TeacherDashboard = () => {
         throw new Error(data.error || "Failed to save passcode");
       }
 
-      setCurrentPasscode(passcode);
-      setPasscodeGenerated(true);
-      setAttendanceWindow(true);
-      setPasscodeExpiresAt(data.expiresAt);
-      setShowPasscodeModal(true);
+      if (isMounted()) {
+        setCurrentPasscode(passcode);
+        setPasscodeGenerated(true);
+        setAttendanceWindow(true);
+        setPasscodeExpiresAt(data.expiresAt);
+        setShowPasscodeModal(true);
+      }
       toast.success("Attendance passcode generated and saved");
     } catch (err) {
       toast.error(err.message || "Failed to generate passcode");
     } finally {
-      setPasscodeLoading(false);
+      if (isMounted()) setPasscodeLoading(false);
     }
   };
 
@@ -451,7 +479,7 @@ const TeacherDashboard = () => {
     setPasscodeLoading(true);
     try {
       const token = await user.getIdToken();
-      const res = await fetch("/api/attendance/settings", {
+      const res = await apiFetch("/api/attendance/settings", {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -461,15 +489,17 @@ const TeacherDashboard = () => {
         throw new Error(data.error || "Failed to close attendance window");
       }
 
-      setAttendanceWindow(false);
-      setCurrentPasscode("");
-      setPasscodeGenerated(false);
-      setPasscodeExpiresAt(null);
+      if (isMounted()) {
+        setAttendanceWindow(false);
+        setCurrentPasscode("");
+        setPasscodeGenerated(false);
+        setPasscodeExpiresAt(null);
+      }
       toast.success("Attendance window closed");
     } catch (err) {
       toast.error(err.message || "Failed to close attendance window");
     } finally {
-      setPasscodeLoading(false);
+      if (isMounted()) setPasscodeLoading(false);
     }
   };
 
@@ -942,6 +972,10 @@ const TeacherDashboard = () => {
       <div className="grid grid-cols-1 gap-8 mt-8">
         <div className="bg-card/40 dark:bg-black/40 backdrop-blur-xl rounded-2xl border border-border dark:border-white/10 p-6">
           <AttendanceAnalytics userId={user?.uid} />
+        </div>
+        {/* feat: AI-powered attendance risk dashboard (issue #2183) */}
+        <div className="bg-card/40 dark:bg-black/40 backdrop-blur-xl rounded-2xl border border-border dark:border-white/10 p-6">
+          <AttendanceRiskDashboard />
         </div>
       </div>
     </div>

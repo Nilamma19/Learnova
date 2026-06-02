@@ -8,6 +8,7 @@ const ROLE_GLOW = {
   teacher: "hover:border-emerald-500/40 hover:shadow-emerald-500/8",
   institute: "hover:border-violet-500/40 hover:shadow-violet-500/8",
   admin: "hover:border-orange-500/40 hover:shadow-orange-500/8",
+  parent: "hover:border-pink-500/40 hover:shadow-pink-500/8",
 };
 
 const FEATURES = [
@@ -68,6 +69,7 @@ export default function RoleSelection({ onRoleSelect }) {
           return (
             <button
               key={role}
+              type="button"
               onClick={() => onRoleSelect(role)}
               onKeyDown={(e) => handleKeyDown(e, role)}
               aria-label={`Select ${config.title} role`}

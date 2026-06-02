@@ -1,14 +1,20 @@
 import { jsonError, jsonSuccess } from "@/lib/api-response";
-import { withErrorHandler, authenticateRequest, parseJSON } from "@/lib/error-handler";
+import { withErrorHandler, parseJSON } from "@/lib/error-handler";
+import { requireAuth } from "@/lib/rbac";
 import { initFirebaseAdmin, getUserProfile } from "@/lib/firebase-admin";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { awardXp } from "@/lib/gamification-service";
 import { getLocalDateKey } from "@/lib/dateUtils";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { AppError } from "@/lib/errors";
+import { executeSaga } from "@/lib/transactionCoordinator";
+import { connectDb } from "@/lib/mongodb";
+import { recordAttendanceSchema } from "@/lib/validations/attendance";
+import { validateRequest } from "@/lib/validations/validateRequest";
+
 
 export const POST = withErrorHandler(async (request) => {
-  const decodedToken = await authenticateRequest(request);
+  const decodedToken = await requireAuth(request);
 
   const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
   const rateLimitResult = await checkRateLimit(`attendance_record_${ip}_${decodedToken.uid}`);
@@ -16,26 +22,25 @@ export const POST = withErrorHandler(async (request) => {
     throw new AppError("Too many attempts. Please try again later.", 429);
   }
 
-  const body = await parseJSON(request, 1024);
-  const { userId, studentName, email, confidenceScore, date } = body;
-  const normalizedDate = (date || getLocalDateKey()).toString();
+  // 1. Validate request body against schema
+  const validationResult = await validateRequest(request, recordAttendanceSchema);
+  if (!validationResult.success) {
+    return validationResult.response;
+  }
+  
+  const { userId, studentName, email, confidenceScore, date } = validationResult.data;
+  const normalizedDate = date || getLocalDateKey();
 
-  // 2. Ensure they are only submitting attendance for their own UID!
-  if (decodedToken.uid !== userId) {
+  // 2. Ensure they are only submitting attendance for their own UID, OR they are a teacher/admin!
+  const isTeacherOrAdmin = decodedToken.role === "teacher" || decodedToken.role === "admin";
+  if (decodedToken.uid !== userId && !isTeacherOrAdmin) {
     return jsonError("Forbidden: Cannot submit attendance for another user", 403);
   }
 
   // 3. Ensure they actually matched the face threshold (60 is the minimum configured in the frontend)
-  // Fix Client-Side Spoofing by rejecting undefined, null, strings, NaN, and out of bounds numbers
   const parsedConfidence = Number(confidenceScore);
-  if (
-    confidenceScore === undefined ||
-    confidenceScore === null ||
-    Number.isNaN(parsedConfidence) ||
-    parsedConfidence < 60 ||
-    parsedConfidence > 100
-  ) {
-    return jsonError("Bad Request: Invalid or spoofed confidence score", 400);
+  if (parsedConfidence < 60) {
+    return jsonError("Bad Request: Confidence score too low", 400);
   }
 
   // Normalize confidence score to 0-1 range for consistency across the DB and dashboards
@@ -45,52 +50,110 @@ export const POST = withErrorHandler(async (request) => {
   // Use a deterministic doc id and a transaction to prevent duplicates and match client duplicate checks.
   initFirebaseAdmin();
   const db = getFirestore();
-  const userProfile = await getUserProfile(decodedToken.uid);
-  const instituteId = userProfile?.instituteId || null;
 
-  // Use authoritative, verified data from Firebase JWT token (decodedToken) to completely prevent
-  // client-supplied parameter spoofing and impersonation attacks.
-  const resolvedName = userProfile?.fullName || decodedToken.name || decodedToken.displayName || decodedToken.email?.split("@")[0] || "Unknown User";
-  const resolvedEmail = userProfile?.email || decodedToken.email || "unknown@learnova.edu";
 
-  const docRef = db.collection("attendance_records").doc(`${userId}_${normalizedDate}`);
+  // Authoritatively fetch target student profile or use caller profile
+  const targetUid = userId || decodedToken.uid;
+  const userProfile = await getUserProfile(targetUid);
+  const callerProfile = decodedToken.uid !== targetUid ? await getUserProfile(decodedToken.uid) : userProfile;
+  const instituteId = userProfile?.instituteId || callerProfile?.instituteId || null;
 
-  let alreadyRecorded = false;
-  await db.runTransaction(async (transaction) => {
-    const existingDoc = await transaction.get(docRef);
-    if (existingDoc.exists) {
-      alreadyRecorded = true;
-      return;
-    }
+  // Use authoritative, verified data from profile to prevent client-supplied parameter spoofing
+  const resolvedName = userProfile?.fullName || (decodedToken.uid === targetUid ? (decodedToken.name || decodedToken.displayName) : null) || studentName || "Unknown User";
+  const resolvedEmail = userProfile?.email || (decodedToken.uid === targetUid ? decodedToken.email : null) || email || "unknown@learnova.edu";
 
-    transaction.set(
-      docRef,
+  const sagaResult = await executeSaga({
+    operationType: "attendance_record",
+    uid: decodedToken.uid,
+    steps: [
       {
-        userId,
-        studentName: resolvedName,
-        email: resolvedEmail,
-        instituteId,
-        timestamp: FieldValue.serverTimestamp(),
-        date: normalizedDate,
-        status: "present",
-        confidenceScore: normalizedConfidence,
-        offlineSynced: false,
+        name: "write_attendance",
+        execute: async (ctx) => {
+          const docRef = db.collection("attendance_records").doc(`${userId}_${normalizedDate}`);
+          await db.runTransaction(async (transaction) => {
+            const existingDoc = await transaction.get(docRef);
+            if (existingDoc.exists) {
+              // Mark as already recorded — don't throw (idempotent)
+              ctx._alreadyRecorded = true;
+              return;
+            }
+
+            transaction.set(
+              docRef,
+              {
+                userId,
+                studentName: resolvedName,
+                email: resolvedEmail,
+                instituteId,
+                timestamp: FieldValue.serverTimestamp(),
+                date: normalizedDate,
+                status: "present",
+                confidenceScore: normalizedConfidence,
+                offlineSynced: false,
+              },
+              { merge: true },
+            );
+          });
+        },
+        compensate: null, // Attendance writes are append-only
       },
-      { merge: true },
-    );
+      {
+        name: "write_mongodb_attendance",
+        execute: async (ctx) => {
+          if (ctx._alreadyRecorded) {
+            return;
+          }
+          const mongoDB = await connectDb();
+          await mongoDB.collection("attendance").updateOne(
+            { userId, date: normalizedDate },
+            {
+              $set: {
+                userId,
+                studentName: resolvedName,
+                email: resolvedEmail,
+                instituteId,
+                timestamp: new Date(),
+                date: normalizedDate,
+                status: "present",
+                confidenceScore: normalizedConfidence,
+                offlineSynced: false,
+              },
+            },
+            { upsert: true }
+          );
+        },
+        compensate: async () => {
+          const mongoDB = await connectDb();
+          await mongoDB.collection("attendance").deleteOne({ userId, date: normalizedDate });
+        },
+      },
+      {
+        name: "award_xp",
+        execute: async (ctx) => {
+          if (ctx._alreadyRecorded) {
+            // Don't award XP if attendance was already recorded
+            return;
+          }
+          await awardXp(userId, "attendance_marked", {
+            attendanceHour: new Date().getHours(),
+          });
+        },
+        compensate: null, // XP side-effect; failure doesn't block attendance
+      },
+    ],
   });
 
-  if (alreadyRecorded) {
+  if (sagaResult.context._alreadyRecorded) {
     return jsonSuccess({ alreadyRecorded: true }, 200);
   }
 
-  // Gamification is a side effect — failures must not block attendance recording
-  try {
-    await awardXp(userId, "attendance_marked", {
-      attendanceHour: new Date().getHours(),
-    });
-  } catch (error) {
-    console.error("Failed to award XP after attendance:", error);
+  if (!sagaResult.success) {
+    if (sagaResult.failedStep === "award_xp") {
+      console.error(`[attendance] XP award failed for user ${userId}: ${sagaResult.error}`);
+    } else {
+      console.error(`[attendance] Saga failed at step "${sagaResult.failedStep}" for user ${userId}: ${sagaResult.error}`);
+      return jsonError("Attendance recording failed", 502);
+    }
   }
 
   return jsonSuccess({ alreadyRecorded: false }, 201);

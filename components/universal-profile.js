@@ -43,7 +43,11 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
+import { useIsMounted } from "@/hooks/useIsMounted";
 import { Navbar } from "./Navbar";
+import ActivityHeatmap from "@/components/activity/ActivityHeatmap";
+import { apiFetch } from "@/lib/apiClient";
+
 
 export default function UniversalProfile() {
   const { user, userProfile, loading } = useAuth();
@@ -53,6 +57,7 @@ export default function UniversalProfile() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const isMounted = useIsMounted();
 
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [imageError, setImageError] = useState(false);
@@ -242,19 +247,21 @@ export default function UniversalProfile() {
         twitter: formData.twitter || "",
       });
 
-      setUserData((prev) => ({
-        ...prev,
-        ...formData,
-      }));
+      if (isMounted()) {
+        setUserData((prev) => ({
+          ...prev,
+          ...formData,
+        }));
 
-      toast.success(
-        "Profile saved successfully!",
-        {
-          id: loadingToast,
-        }
-      );
+        toast.success(
+          "Profile saved successfully!",
+          {
+            id: loadingToast,
+          }
+        );
 
-      setIsEditing(false);
+        setIsEditing(false);
+      }
     } catch (error) {
       toast.error(
         error.message || "Failed to save profile.",
@@ -263,7 +270,7 @@ export default function UniversalProfile() {
         }
       );
     } finally {
-      setIsSaving(false);
+      if (isMounted()) setIsSaving(false);
     }
   };
 
@@ -275,17 +282,19 @@ export default function UniversalProfile() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // 1. Explicitly check for allowed image types (.jpg, .jpeg, .png, .webp)
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
       toast.error("Invalid file type. Only .jpg, .jpeg, .png, and .webp are supported.");
-      e.target.value = "";
+      e.target.value = ""; // Clear the file input registry cleanly
       return;
     }
 
+    // 2. Reduce restriction boundary down to a strict 2MB limit
     const MAX_SIZE = 2 * 1024 * 1024;
     if (file.size > MAX_SIZE) {
       toast.error("File too large. Maximum image size allowed is 2MB.");
-      e.target.value = "";
+      e.target.value = ""; // Clear the file input registry cleanly
       return;
     }
 
@@ -347,7 +356,7 @@ export default function UniversalProfile() {
         uploadFormData.append("faceDescriptor", faceDescriptorString);
       }
 
-      const res = await fetch("/api/images", {
+      const res = await apiFetch("/api/images", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: uploadFormData,
@@ -363,15 +372,17 @@ export default function UniversalProfile() {
         await updateProfile(user, { photoURL: data.url });
         const userRef = doc(db, "users", user.uid);
         await updateDoc(userRef, { photoURL: data.url });
-        setAvatarUrl(data.url);
-        toast.success("Profile picture updated successfully!", { id: loadingToast });
+        if (isMounted()) {
+          setAvatarUrl(data.url);
+          toast.success("Profile picture updated successfully!", { id: loadingToast });
+        }
       } else {
         throw new Error(data.error || "Upload failed");
       }
     } catch (error) {
       toast.error(error.message || "Failed to update profile picture.", { id: loadingToast });
     } finally {
-      handleCancelPreview();
+      if (isMounted()) handleCancelPreview();
     }
   };
 
@@ -389,9 +400,11 @@ export default function UniversalProfile() {
       await updateProfile(user, { photoURL: null });
       const userRef = doc(db, "users", user.uid);
       await updateDoc(userRef, { photoURL: null });
-      setAvatarUrl(null);
-      setImageError(false);
-      toast.success("Profile picture removed.", { id: loadingToast });
+      if (isMounted()) {
+        setAvatarUrl(null);
+        setImageError(false);
+        toast.success("Profile picture removed.", { id: loadingToast });
+      }
     } catch (error) {
       toast.error(error.message || "Failed to remove profile picture.", { id: loadingToast });
     }
@@ -817,6 +830,10 @@ export default function UniversalProfile() {
               </p>
             </div>
           ))}
+        </div>
+
+        <div className="mt-8">
+          <ActivityHeatmap />
         </div>
 
         {/* Tabs */}

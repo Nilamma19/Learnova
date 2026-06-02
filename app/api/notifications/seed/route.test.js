@@ -2,11 +2,11 @@ import { POST } from "./route";
 import { authenticateRequest, parseJSON } from "../../../../lib/error-handler";
 import { checkRateLimit } from "../../../../lib/rateLimit";
 import { connectDb } from "../../../../lib/mongodb";
+import { UnauthorizedError } from "../../../../lib/errors";
 import { assertApiSuccess } from "../../../../testUtils/assertApiSuccess";
 import { assertApiError } from "../../../../testUtils/assertApiError";
 
 vi.mock("../../../../lib/error-handler", () => {
-  const { AppError } = require("../../../../lib/errors");
   return {
     authenticateRequest: vi.fn(),
     withErrorHandler: (handler) => {
@@ -14,10 +14,10 @@ vi.mock("../../../../lib/error-handler", () => {
         try {
           return await handler(request, ...args);
         } catch (error) {
-          if (error instanceof AppError) {
+          if (error && (error.statusCode !== undefined || error.name === "AppError")) {
             const payload = error.originalMessage !== undefined ? error.originalMessage : error.message;
             return {
-              status: error.statusCode,
+              status: error.statusCode || 500,
               json: async () => ({ error: payload }),
             };
           }
@@ -36,17 +36,16 @@ vi.mock("../../../../lib/rateLimit", () => ({
   checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, remaining: 9 }),
 }));
 
+const mockCollection = {
+  insertMany: vi.fn().mockResolvedValue({ acknowledged: true }),
+};
+
 vi.mock("../../../../lib/mongodb", () => {
-  const mockCollection = {
-    insertMany: vi.fn().mockResolvedValue({ acknowledged: true }),
-  };
   const mockDb = {
     collection: vi.fn(() => mockCollection),
   };
   return {
     connectDb: vi.fn(() => Promise.resolve(mockDb)),
-    _mockCollection: mockCollection,
-    _mockDb: mockDb,
   };
 });
 
@@ -60,12 +59,9 @@ vi.mock("next/server", () => ({
 }));
 
 describe("notifications seed route", () => {
-  let mockCollection;
-
   beforeEach(() => {
     vi.clearAllMocks();
     checkRateLimit.mockResolvedValue({ allowed: true, remaining: 9 });
-    mockCollection = require("../../../../lib/mongodb")._mockCollection;
   });
 
   const createMockRequest = (headers = {}) => {
@@ -78,7 +74,7 @@ describe("notifications seed route", () => {
   };
 
   test("successfully seeds notifications for own account", async () => {
-    authenticateRequest.mockResolvedValue({ uid: "user-123" });
+    authenticateRequest.mockResolvedValue({ uid: "user-123", email_verified: true });
     parseJSON.mockResolvedValue({ userId: "user-123" });
 
     const response = await POST(createMockRequest());
@@ -94,7 +90,7 @@ describe("notifications seed route", () => {
   });
 
   test("rejects request with 400 Bad Request if userId is missing from request body", async () => {
-    authenticateRequest.mockResolvedValue({ uid: "user-123" });
+    authenticateRequest.mockResolvedValue({ uid: "user-123", email_verified: true });
     parseJSON.mockResolvedValue({});
 
     const response = await POST(createMockRequest());
@@ -103,7 +99,7 @@ describe("notifications seed route", () => {
   });
 
   test("rejects request with 403 Forbidden if trying to seed notifications for another user", async () => {
-    authenticateRequest.mockResolvedValue({ uid: "user-123" });
+    authenticateRequest.mockResolvedValue({ uid: "user-123", email_verified: true });
     parseJSON.mockResolvedValue({ userId: "other-user-456" });
 
     const response = await POST(createMockRequest());
@@ -111,7 +107,6 @@ describe("notifications seed route", () => {
   });
 
   test("rejects request with 401 if unauthorized", async () => {
-    const { UnauthorizedError } = require("../../../../lib/errors");
     authenticateRequest.mockRejectedValue(new UnauthorizedError("Unauthorized"));
 
     const response = await POST(createMockRequest());
@@ -119,7 +114,7 @@ describe("notifications seed route", () => {
   });
 
   test("rejects request with 429 if rate limit is exceeded", async () => {
-    authenticateRequest.mockResolvedValue({ uid: "user-123" });
+    authenticateRequest.mockResolvedValue({ uid: "user-123", email_verified: true });
     parseJSON.mockResolvedValue({ userId: "user-123" });
     checkRateLimit.mockResolvedValue({ allowed: false });
 

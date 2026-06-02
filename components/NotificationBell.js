@@ -5,6 +5,18 @@ import { Bell, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/apiClient";
+import { extractNotificationsFromResponse } from "@/lib/notificationResponse";
+import { useSafePolling } from "@/hooks/useSafePolling";
+import { useIsMounted } from "@/hooks/useIsMounted";
+
+// AbortController for fetch requests
+const createAbortController = () => {
+  try {
+    return new AbortController();
+  } catch {
+    return null; // Fallback for environments without AbortController
+  }
+};
 
 function timeAgo(date) {
   if (!date) {
@@ -46,62 +58,76 @@ export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const isMounted = useIsMounted();
 
   const dropdownRef = useRef(null);
   const buttonRef = useRef(null);
   const previousIdsRef = useRef(new Set());
   const hasLoadedRef = useRef(false);
 
-  const fetchNotifications = useCallback(async () => {
-    if (!user?.uid) {
-      setNotifications([]);
-      previousIdsRef.current = new Set();
-      hasLoadedRef.current = false;
-      setError("");
-      return;
-    }
-
-    setIsLoading(true);
-    setError("");
-
-    try {
-      const token = await user.getIdToken();
-      const data = await apiFetch(`/api/notifications?userId=${encodeURIComponent(user.uid)}`, {
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-
-      const fetchedNotifications = Array.isArray(data.notifications) ? data.notifications : [];
-      const currentIds = new Set(
-        fetchedNotifications
-          .map((notification) => notification._id?.toString?.() || notification._id)
-          .filter(Boolean)
-      );
-
-      if (hasLoadedRef.current) {
-        const newNotifications = fetchedNotifications.filter((notification) => {
-          const id = notification._id?.toString?.() || notification._id;
-          return id && !previousIdsRef.current.has(id);
-        });
-
-        if (newNotifications.length > 0) {
-          newNotifications.forEach((notification) => {
-            toast.success(notification.message);
-          });
-        }
+  useSafePolling(
+    async (signal) => {
+      if (loading) {
+        return;
       }
 
-      previousIdsRef.current = currentIds;
-      hasLoadedRef.current = true;
-      setNotifications(fetchedNotifications);
-    } catch (err) {
-      setError(err.message || "Unable to load notifications");
-      setNotifications([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user]);
+      if (!user?.uid) {
+        setNotifications([]);
+        previousIdsRef.current = new Set();
+        hasLoadedRef.current = false;
+        setError("");
+        return;
+      }
+
+      setIsLoading(true);
+      setError("");
+
+      try {
+        const token = await user.getIdToken();
+        const data = await apiFetch(`/api/notifications?userId=${encodeURIComponent(user.uid)}`, {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          },
+          signal
+        });
+
+        const fetchedNotifications = extractNotificationsFromResponse(data);
+        const currentIds = new Set(
+          fetchedNotifications
+            .map((notification) => notification._id?.toString?.() || notification._id)
+            .filter(Boolean)
+        );
+
+        if (hasLoadedRef.current) {
+          const newNotifications = fetchedNotifications.filter((notification) => {
+            const id = notification._id?.toString?.() || notification._id;
+            return id && !previousIdsRef.current.has(id);
+          });
+
+          if (newNotifications.length > 0) {
+            newNotifications.forEach((notification) => {
+              toast.success(notification.message);
+            });
+          }
+        }
+
+        previousIdsRef.current = currentIds;
+        hasLoadedRef.current = true;
+        setNotifications(fetchedNotifications);
+        setError("");
+      } catch (err) {
+        if (err?.name !== "AbortError") {
+          setError("Unable to load notifications");
+          setNotifications([]);
+        }
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    30000,
+    [user?.uid, loading]
+  );
 
   const markNotificationsAsRead = useCallback(async () => {
     if (!user?.uid) {
@@ -118,36 +144,20 @@ export default function NotificationBell() {
         body: { userId: user.uid },
       });
 
-      setNotifications((currentNotifications) =>
-        currentNotifications.map((notification) => ({
-          ...notification,
-          read: true,
-        }))
-      );
-      setError("");
+      if (isMounted()) {
+        setNotifications((currentNotifications) =>
+          currentNotifications.map((notification) => ({
+            ...notification,
+            read: true,
+          }))
+        );
+        setError("");
+      }
     } catch (err) {
-      setError(err.message || "Unable to update notifications");
+      if (isMounted()) setError(err.message || "Unable to update notifications");
     }
   }, [user]);
 
-  useEffect(() => {
-    if (loading) {
-      return undefined;
-    }
-
-    if (!user?.uid) {
-      setNotifications([]);
-      previousIdsRef.current = new Set();
-      hasLoadedRef.current = false;
-      return undefined;
-    }
-
-    fetchNotifications();
-
-    const intervalId = setInterval(fetchNotifications, 30000);
-
-    return () => clearInterval(intervalId);
-  }, [fetchNotifications, loading, user?.uid]);
 
   useEffect(() => {
     if (!isOpen) {

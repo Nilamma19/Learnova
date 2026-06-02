@@ -8,7 +8,7 @@ import {
   sendEmailVerification,
   signOut,
 } from "firebase/auth";
-import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, deleteDoc, setDoc } from "firebase/firestore";
 import {
   createUserProfile,
   getErrorMessage,
@@ -18,6 +18,19 @@ import { ROLE_CONFIG } from "@/constants/userRoles";
 
 const FIREBASE_CONFIG_ERROR =
   "Firebase is not configured. Please add your Firebase environment variables to .env.local and restart the development server.";
+
+// ─── Mock Auth Mode (development only) ──────────────────────────
+const isMockAuthMode =
+  process.env.NODE_ENV === "development" &&
+  process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
+
+const MOCK_USER = {
+  uid: "mock-user-001",
+  email: "mock@learnova.dev",
+  displayName: "Mock User",
+  emailVerified: true,
+  role: "student",
+};
 
 const syncCustomClaims = async ({ user, role, fullName }) => {
   try {
@@ -37,6 +50,11 @@ const syncCustomClaims = async ({ user, role, fullName }) => {
     if (response.ok) {
       // Force refresh token so the custom claims are present in the client-side session immediately
       await user.getIdToken(true).catch(() => {});
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      if (errorData?.error?.includes('already registered')) {
+        await user.getIdToken(true).catch(() => {});
+      }
     }
   } catch {
     // Keep login non-blocking if claim migration fails.
@@ -68,40 +86,43 @@ export const loginWithEmail = async (email, password, selectedRole) => {
       return { success: false, needsVerification: true };
     }
 
-    // Get user profile to check role
-    const userDoc = await getDoc(doc(db, "users", user.uid));
-    if (userDoc.exists()) {
-      const userData = userDoc.data();
+    // Read role from Firebase custom claims (authoritative source)
+    const idTokenResult = await user.getIdTokenResult();
+    let userRole = idTokenResult.claims?.role;
 
-      // Check if role matches selected role
-      if (userData.role !== selectedRole) {
-        await signOut(auth);
-        return {
-          success: false,
-          error: `This account is registered as ${
-            ROLE_CONFIG[userData.role]?.title || "Unknown"
-          }. Please select the correct role.`,
-        };
+    // If no custom claims yet, sync them from Firestore and refresh
+    if (!userRole) {
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        userRole = userDoc.data().role;
+        await syncCustomClaims({
+          user,
+          role: userRole,
+          fullName: userDoc.data().fullName,
+        });
+        const refreshed = await user.getIdTokenResult(true);
+        userRole = refreshed.claims?.role || userRole;
+      } else {
+        return { success: false, needsProfile: true };
       }
-
-      // Update last login — use updateDoc to avoid overwriting the
-      // entire document (including role) with potentially stale data
-      await updateDoc(doc(db, "users", user.uid), {
-        lastLogin: new Date(),
-      });
-
-      // Migrate existing users to have cryptographically signed custom
-      // claims.  Fire-and-forget — the login succeeds regardless.
-      void syncCustomClaims({
-        user,
-        role: userData.role,
-        fullName: userData.fullName,
-      });
-
-      return { success: true, userData };
-    } else {
-      return { success: false, needsProfile: true };
     }
+
+    if (userRole !== selectedRole) {
+      await signOut(auth);
+      return {
+        success: false,
+        error: `This account is registered as ${
+          ROLE_CONFIG[userRole]?.title || "Unknown"
+        }. Please select the correct role.`,
+      };
+    }
+
+    // Update last login
+    await setDoc(doc(db, "users", user.uid), {
+      lastLogin: new Date(),
+    }, { merge: true });
+
+    return { success: true, userData: { role: userRole } };
   } catch (err) {
     return {
       success: false,
@@ -196,6 +217,27 @@ export const signupWithEmail = async (
 
 export const loginWithGoogle = async (selectedRole, isLogin, additionalData) => {
   try {
+    // INTERCEPT FOR MOCK AUTH MODE
+    if (isMockAuthMode) {
+      console.log(`[Mock Auth] Simulating Google Sign-In as: ${selectedRole || "student"}`);
+      
+      // Simulate a small network delay for realistic UI loading states/spinners
+      await new Promise((resolve) => setTimeout(resolve, 600));
+
+      // Construct a mock profile that mimics what your application context expects downstream
+      const simulatedUserData = {
+        ...MOCK_USER,
+        role: selectedRole || MOCK_USER.role,
+        fullName: MOCK_USER.displayName,
+        lastLogin: new Date(),
+      };
+
+      return { 
+        success: true, 
+        userData: simulatedUserData 
+      };
+    }
+    
     if (!auth || !db) {
       return { success: false, error: FIREBASE_CONFIG_ERROR };
     }
@@ -204,17 +246,45 @@ export const loginWithGoogle = async (selectedRole, isLogin, additionalData) => 
     const userCredential = await signInWithPopup(auth, provider);
     const user = userCredential.user;
     
-    // Get user profile to check role
-    const userDoc = await getDoc(doc(db, "users", user.uid));
-    if (!userDoc.exists()) {
-      if (isLogin) {
+    // For returning users, read role from custom claims (authoritative source)
+    let userRole = null;
+
+    if (isLogin) {
+      const idTokenResult = await user.getIdTokenResult();
+      userRole = idTokenResult.claims?.role;
+
+      // Fallback: if no custom claims yet, read from Firestore and sync
+      if (!userRole) {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          userRole = userDoc.data().role;
+          await syncCustomClaims({
+            user,
+            role: userRole,
+            fullName: userDoc.data().fullName,
+          });
+          const refreshed = await user.getIdTokenResult(true);
+          userRole = refreshed.claims?.role || userRole;
+        }
+      }
+
+      if (userRole && userRole !== selectedRole) {
         await signOut(auth);
         return {
           success: false,
-          error: "Account not found. Please sign up first.",
+          error: `This account is registered as ${
+            ROLE_CONFIG[userRole]?.title || "Unknown"
+          }. Please select the correct role.`,
         };
+      }
+    }
+
+    if (!isLogin) {
+      // New user via Google sign-up
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        userRole = userDoc.data().role;
       } else {
-        // Create user profile with role for new Google sign-ups
         const nameToUse = 
           user.displayName?.trim() || 
           additionalData.fullName?.trim() || 
@@ -242,7 +312,8 @@ export const loginWithGoogle = async (selectedRole, isLogin, additionalData) => 
 
         try {
           await createUserProfile(user, selectedRole, {...additionalData, fullName: nameToUse });
-          await user.getIdToken(true)
+          await user.getIdToken(true);
+          return { success: true, userData: { role: selectedRole } };
         } catch (profileError) {
           console.error(`[google-signup] Profile creation failed for user ${user.uid}, initiating cleanup`, profileError.message);
           try {
@@ -256,38 +327,15 @@ export const loginWithGoogle = async (selectedRole, isLogin, additionalData) => 
           }
           throw profileError;
         }
-        return { success: true, userData: { role: selectedRole } };
-        }
-    }
-
-    const userData = userDoc.data();
-
-    // For existing users, check if role matches selected role (for login)
-    if (isLogin && userData && userData.role !== selectedRole) {
-      await signOut(auth);
-      return {
-        success: false,
-        error: `This account is registered as ${
-          ROLE_CONFIG[userData.role]?.title || "Unknown"
-        }. Please select the correct role.`,
-      };
+      }
     }
 
     // Update last login for existing users
-    if (userData) {
-      await updateDoc(doc(db, "users", user.uid), {
-        lastLogin: new Date(),
-      });
+    await setDoc(doc(db, "users", user.uid), {
+      lastLogin: new Date(),
+    }, { merge: true });
 
-      // Sync custom claims for existing users to ensure they have the correct role in their token
-      void syncCustomClaims({
-        user,
-        role: userData.role,
-        fullName: userData.fullName,
-      });
-    }
-
-    return { success: true, userData: userData || { role: selectedRole } };
+    return { success: true, userData: { role: userRole || selectedRole } };
   } catch (err) {
     return {
       success: false,
