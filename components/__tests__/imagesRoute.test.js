@@ -119,6 +119,7 @@ describe("/api/images route orchestration", () => {
 
   test("GET rejects when user requests another user's image and is not admin or teacher", async () => {
     const uid = "firebase-uid-1";
+    const ownId = new ObjectId();
     const otherId = new ObjectId();
 
     requireAuth.mockResolvedValue({ uid });
@@ -145,6 +146,7 @@ describe("/api/images route orchestration", () => {
 
   test("GET allows admin to view any user's image", async () => {
     const uid = "admin-uid-1";
+    const ownId = new ObjectId();
     const otherId = new ObjectId();
 
     requireAuth.mockResolvedValue({ uid });
@@ -179,7 +181,9 @@ describe("/api/images route orchestration", () => {
 
   test("GET allows teacher to view any user's image", async () => {
     const uid = "teacher-uid-1";
+    const ownId = new ObjectId();
     const otherId = new ObjectId();
+    const instituteId = new ObjectId();
 
     requireAuth.mockResolvedValue({ uid });
     
@@ -214,6 +218,7 @@ describe("/api/images route orchestration", () => {
     const uid = "orphan-uid";
 
     requireAuth.mockResolvedValue({ uid });
+    getUserImageFromDb.mockRejectedValue(new NotFoundError("User not found"));
     connectDb.mockResolvedValue({
       collection: vi.fn().mockReturnValue({
         findOne: vi.fn().mockResolvedValue(null),

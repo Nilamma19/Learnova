@@ -91,10 +91,6 @@ export async function POST(req) {
       }
     }
 
-    // Set Firebase custom claims for all created auth users
-    await Promise.all(createdAuthUids.map(uid =>
-      admin.auth().setCustomUserClaims(uid, { role: 'student' })
-    ));
 
     // Build firebaseUid map: email → uid
     const emailToUid = new Map();
@@ -121,7 +117,7 @@ export async function POST(req) {
 
     // Set Firebase custom claims for all created auth users
     await Promise.all(createdAuthUids.map(uid =>
-      admin.auth().setCustomUserClaims(uid, { role: 'student' })
+      admin.auth().setCustomUserClaims(uid, { role: 'student', instituteId })
     ));
 
     // Batch phase 4: Bulk Firestore writes
