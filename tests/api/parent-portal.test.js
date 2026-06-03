@@ -514,9 +514,9 @@ describe("Parent Portal Feature Tests", () => {
       const response = await parentGetGrades(makeRequest(), { params: { studentId: "student-1" } });
       const body = await assertApiSuccess(response, 200);
 
-      // Verify that sample grades were seeded in the database
+      // Verify that sample grades are returned without persisting to the database
       expect(body.data.grades).toHaveLength(5);
-      expect(Object.keys(store.grades)).toHaveLength(5);
+      expect(Object.keys(store.grades)).toHaveLength(0);
       expect(body.data.grades[0].subject).toBe("Chemistry");
     });
 

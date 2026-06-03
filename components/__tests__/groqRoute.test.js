@@ -102,7 +102,7 @@ describe("POST /api/groq - Security, Authentication, Rate Limiting, and Timeout 
   test("rejects over-length messages with 400 Bad Request", async () => {
     verifyFirebaseToken.mockResolvedValue({ uid: "user-123", email: "user@example.com", email_verified: true });
 
-    const longMessage = "a".repeat(2001);
+    const longMessage = "a".repeat(10001);
     const req = createMockRequest(
       { authorization: "Bearer valid-token" },
       { message: longMessage }
