@@ -203,6 +203,8 @@ describe("Cron Job: Attendance Warnings", () => {
     ]);
 
     // Mock: warning log shows recent warning for student-1
+    const warningLogCursor = createCursor([{ userId: 'student-1' }]);
+    warningLogsCollection.find = vi.fn().mockReturnValue(warningLogCursor);
     const warningLogFindOne = vi
       .fn()
       .mockResolvedValue({ userId: "student-1" });

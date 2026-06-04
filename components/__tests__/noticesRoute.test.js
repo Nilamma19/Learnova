@@ -40,6 +40,9 @@ vi.mock("@upstash/redis", () => ({
   })),
 }));
 
+process.env.UPSTASH_REDIS_REST_URL = "https://mock.upstash.io";
+process.env.UPSTASH_REDIS_REST_TOKEN = "mock-token";
+
 // Mock firebase admin
 vi.mock("@/lib/firebase-admin", () => ({
   verifyFirebaseToken: vi.fn(),

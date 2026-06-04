@@ -20,6 +20,7 @@ import {
   Sparkles,
   Copy,
   CalendarPlus,
+  ExternalLink,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMounted } from "@/hooks/useIsMounted";
@@ -1093,11 +1094,12 @@ export default function Timetable({ role = "student" }) {
                       <a
                         href={`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(`${window.location.origin}/api/timetable/ical/${calendarToken}/feed.ics`)}`}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-sm text-white transition-colors cursor-pointer"
                       >
                         <CalendarPlus className="w-4 h-4" />
                         Google Calendar
+                        <ExternalLink size={14} className="ml-1 inline" />
                       </a>
                       <a
                         href={`webcal://${window.location.host}/api/timetable/ical/${calendarToken}/feed.ics`}

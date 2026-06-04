@@ -194,8 +194,15 @@ const createPdfDownload = (notice) => {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10.5);
   doc.setTextColor(51, 65, 85); // Slate-700
+  
+  // ── FIX FOR ISSUE #2007: Safe text extraction and fallback ──
+  const rawContent = notice.content || notice.text;
+  const safeContent = (typeof rawContent === "string" && rawContent.trim().length > 0) 
+    ? rawContent 
+    : "No text content provided for this notice.";
+  // ────────────────────────────────────────────────────────────
 
-  const lines = doc.splitTextToSize(notice.content || "", contentWidth);
+  const lines = doc.splitTextToSize(safeContent, contentWidth);
   const lineHeight = 6.5;
 
   lines.forEach((line) => {

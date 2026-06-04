@@ -35,6 +35,7 @@ function FooterLink({ href, children, external = false }) {
       >
         <span className="relative">
           {children}
+          {external && <ExternalLink size={14} className="ml-1 inline shrink-0" />}
           <span className="absolute -bottom-0.5 left-0 h-px w-0 bg-gradient-to-r from-purple-400 to-blue-400 transition-all duration-300 group-hover:w-full" />
         </span>
         <ArrowUpRight
@@ -107,6 +108,8 @@ export default function Footer() {
     { label: "Contributors", href: "/contributors" },
     { label: "Terms & Conditions", href: "/terms" },
     { label: "Streaks", href: "/streaks" },
+    { label: "GitHub Codebase", href: "https://github.com/Premshaw23/Learnova", external: true },
+    { label: "Discord Server", href: "https://discord.gg/", external: true },
   ];
 
   const sectionLinks = [
