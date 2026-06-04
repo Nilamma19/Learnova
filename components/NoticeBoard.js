@@ -40,6 +40,14 @@ const SmartNoticeBoard = () => {
 
   const [debouncedQuery, setDebouncedQuery] =
   useState("");
+  // Debounced search for better performance
+useEffect(() => {
+  const timer = setTimeout(() => {
+    setDebouncedQuery(searchQuery);
+  }, 300);
+
+  return () => clearTimeout(timer);
+}, [searchQuery]);
 
   const [selectedCategory, setSelectedCategory] =
     useState("all");
