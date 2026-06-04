@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import admin from "firebase-admin";
 import { authorizeCronRequest } from "@/lib/cronAuth";
 import { connectDb } from "@/lib/mongodb";
-import { initializeFirebase } from "@/lib/firebase-admin";
 import { evaluateStudentAttendance } from "@/lib/attendanceUtils";
 
 export const dynamic = "force-dynamic";
@@ -86,25 +84,6 @@ async function getRecentWarningUserIds(db, userIds, cooldownDate) {
   return new Set(checks.filter(Boolean));
 }
 
-async function loadFirestoreAttendanceByUser(firestore, studentIds) {
-  const attendanceByUser = new Map();
-
-  await Promise.all(
-    studentIds.map(async (uid) => {
-      const snapshot = await firestore
-        .collection("attendance_records")
-        .where("userId", "==", uid)
-        .get();
-
-      attendanceByUser.set(
-        uid,
-        snapshot.docs.map((doc) => doc.data())
-      );
-    })
-  );
-
-  return attendanceByUser;
-}
 
 async function sendWarningEmails(emailsToSend) {
   const hasEmailConfig =
