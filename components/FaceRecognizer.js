@@ -82,6 +82,13 @@ export default function FaceRecognizer({ authUser }) {
     const handleOnline = () => {
       if (!isMounted.current) return;
       setIsOffline(false);
+      setAttendanceState((prev) => {
+        if (prev === "queued-offline") {
+          setMessage("Synced");
+          return "saved";
+        }
+        return prev;
+      });
       syncAttendanceQueue();
     };
     const handleOffline = () => {
@@ -600,9 +607,7 @@ export default function FaceRecognizer({ authUser }) {
           return;
         if (result.queuedOffline) {
           setAttendanceState("queued-offline");
-          setMessage(
-            "Attendance cached offline. Waiting for network sync... ✅"
-          );
+          setMessage("Offline - Syncing later");
         } else {
           setAttendanceState(
             result.alreadyRecorded ? "already-recorded" : "saved"
@@ -789,7 +794,7 @@ export default function FaceRecognizer({ authUser }) {
           {attendanceState === "queued-offline" && (
             <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3.5 text-center space-y-1">
               <p className="text-blue-300 font-semibold text-sm">
-                Attendance saved offline.
+                Offline - Syncing later
               </p>
               <p className="text-xs text-gray-300">
                 Will sync automatically when connection is restored.
