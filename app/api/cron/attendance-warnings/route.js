@@ -268,11 +268,9 @@ export async function GET(request) {
               });
             }
 
-            totalWarnings++;
-          }
+          totalWarnings++;
         }
 
-        // Flush accumulated notifications to prevent unbounded memory growth
         if (notificationsToInsert.length >= FLUSH_THRESHOLD) {
           await flushNotifications();
         }

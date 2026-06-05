@@ -437,6 +437,7 @@ export async function middleware(request) {
     }
   }
 
+  if (pathname.startsWith("/api/") && isUnsafeMethod) {
   if (isTokenValid && pathname.startsWith("/api/")) {
     const sessionId =
       request.cookies.get("sessionId")?.value ||
