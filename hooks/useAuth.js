@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useIsMounted } from "@/hooks/useIsMounted";
 import { auth, db } from "@/lib/firebaseConfig";
 import { onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -124,6 +125,8 @@ export const useAuth = () => {
   const refreshManagerRef = useRef(null);
   const unsubscribeSnapshotRef = useRef(null);
   const firstSnapshotReceivedRef = useRef(false);
+
+  const isMounted = useIsMounted();
 
   const handleSessionExpired = useCallback(() => {
     if (!isMounted()) return;
