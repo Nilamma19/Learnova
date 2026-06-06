@@ -32,6 +32,11 @@ const AchievementSection = dynamic(() => import("./AchievementSection"), {
   loading: () => <DashboardSkeleton />,
 });
 
+const StudentAchievementsPanel = dynamic(
+  () => import("./achievements/StudentAchievementsPanel"),
+  { ssr: false, loading: () => <DashboardSkeleton /> }
+);
+
 const AttendanceChart = dynamic(() => import("./AttendanceChart"), {
   ssr: false,
   loading: () => <ChartSkeleton />,
@@ -442,6 +447,11 @@ const StudentDashboard = () => {
           <ExportDropdown onExport={handleExportAttendance} />
         </div>
         <AttendanceInsights recentActivity={recentActivity} />
+      </div>
+
+      {/* Digital Certificates & Achievements */}
+      <div className="max-w-7xl mx-auto mt-8 px-6">
+        <StudentAchievementsPanel />
       </div>
 
       {/* Adaptive Content Sections */}

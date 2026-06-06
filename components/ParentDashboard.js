@@ -42,6 +42,12 @@ import DashboardSkeleton from "@/components/ui/DashboardSkeleton";
 import { Navbar } from "./Navbar";
 import { exportToCSV, exportToPDF } from "@/utils/exportUtils";
 import ExportDropdown from "@/components/ui/ExportDropdown";
+import dynamic from "next/dynamic";
+
+const ParentAchievementsPanel = dynamic(
+  () => import("@/components/achievements/ParentAchievementsPanel"),
+  { ssr: false, loading: () => <DashboardSkeleton /> }
+);
 
 const ParentDashboard = () => {
   const { user, userProfile } = useAuth();
@@ -444,7 +450,7 @@ const ParentDashboard = () => {
       {/* Navigation Tabs */}
       <div className="max-w-7xl mx-auto px-6 mb-6">
         <div className="flex items-center gap-2 border-b border-white/10 pb-2 flex-wrap">
-          {["overview", "attendance", "academics", "notices"].map((tab) => (
+          {["overview", "attendance", "academics", "achievements", "notices"].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -850,6 +856,16 @@ const ParentDashboard = () => {
                     </table>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* ACHIEVEMENTS TAB */}
+            {activeTab === "achievements" && (
+              <div className="bg-slate-900/40 border border-white/10 rounded-2xl p-6 shadow-xl">
+                <ParentAchievementsPanel
+                  studentId={selectedChild?.uid}
+                  studentName={selectedChild?.name || "Child"}
+                />
               </div>
             )}
 

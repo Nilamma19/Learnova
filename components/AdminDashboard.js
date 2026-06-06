@@ -57,6 +57,11 @@ const EngagementChart = dynamic(
   { ssr: false, loading: () => <ChartSkeleton variant="doughnut" /> }
 );
 
+const AdminAchievementDashboard = dynamic(
+  () => import("@/components/achievements/AdminAchievementDashboard"),
+  { ssr: false, loading: () => <DashboardSkeleton /> }
+);
+
 const SuperAdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
@@ -1593,6 +1598,7 @@ const SuperAdminDashboard = () => {
         {[
           "overview",
           "institutes",
+          "achievements",
           "monitoring",
           "security",
           "sync reconciliation",
@@ -1617,6 +1623,7 @@ const SuperAdminDashboard = () => {
         <div className="bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 p-6 shadow-2xl">
           {activeTab === "overview" && renderOverview()}
           {activeTab === "institutes" && renderInstitutes()}
+          {activeTab === "achievements" && <AdminAchievementDashboard />}
           {activeTab === "monitoring" && renderSystemMonitoring()}
           {activeTab === "security" && renderSecurityCenter()}
           {activeTab === "sync reconciliation" && renderSyncInspector()}

@@ -28,6 +28,7 @@ import {
   User,
   RefreshCw,
   Upload,
+  Award,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import ExportDropdown from "@/components/ui/ExportDropdown";
@@ -43,6 +44,11 @@ import DashboardSkeleton from "@/components/ui/DashboardSkeleton";
 const AttendanceTrendsChart = dynamic(
   () => import("@/components/charts/AttendanceTrendsChart"),
   { ssr: false, loading: () => <ChartSkeleton variant="chart" /> }
+);
+
+const InstituteAchievementPanel = dynamic(
+  () => import("@/components/achievements/InstituteAchievementPanel"),
+  { ssr: false, loading: () => <DashboardSkeleton /> }
 );
 
 const InstituteDashboard = () => {
@@ -1179,7 +1185,17 @@ const InstituteDashboard = () => {
             <UserCheck className="w-5 h-5 mr-2" />
             Attendance
           </button>
-          {/* ...existing code... */}
+          <button
+            onClick={() => setActiveTab("achievements")}
+            className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center ${
+              activeTab === "achievements"
+                ? "bg-gradient-to-r from-blue-600 to-purple-600 text-foreground dark:text-white shadow-lg"
+                : "bg-gray-800/50 text-muted-foreground dark:text-gray-300 hover:bg-gray-700/50 border border-gray-600/50"
+            }`}
+          >
+            <Award className="w-5 h-5 mr-2" />
+            Achievements
+          </button>
           <button
             onClick={() => setActiveTab("settings")}
             className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center ${
@@ -1201,6 +1217,7 @@ const InstituteDashboard = () => {
         {activeTab === "classes" && <ClassesTab />}
         {activeTab === "teachers" && <TeachersTab />}
         {activeTab === "attendance" && <AttendanceTab />}
+        {activeTab === "achievements" && <InstituteAchievementPanel />}
         {activeTab === "settings" && <SettingsTab />}
         {/* Add Class Modal */}
         {showAddModal && (
