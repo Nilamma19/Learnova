@@ -1,5 +1,13 @@
 import { resolveConflict } from '../lib/syncService';
 
+vi.mock('@/db/offlineStore', () => ({
+  getPendingActions: vi.fn(),
+  updateActionStatus: vi.fn(),
+  removePendingAction: vi.fn(),
+  addPendingAction: vi.fn(),
+  clearPendingActions: vi.fn(),
+}));
+
 describe('Version Vectoring & Conflict Resolution Engine', () => {
 
   describe('resolveConflict()', () => {
