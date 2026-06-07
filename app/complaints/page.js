@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import ComplaintsTable from "@/components/ComplaintsTable";
 import ComplaintForm from "@/components/ComplaintForm";
-import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
 import CardListSkeleton from "@/components/ui/CardListSkeleton";
 import DarkVeil from "@/components/ui-block/DarkVeil";
@@ -15,9 +14,6 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
-  Calendar,
-  Shield,
-  User,
   FileText,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -71,7 +67,6 @@ function StatCard({ label, value, color, icon: Icon }) {
 
 function ComplaintDetailModal({ complaint, onClose }) {
   if (!complaint) return null;
-  const priorityColor = { High: "#ef4444", Medium: "#f97316", Low: "#22c55e" };
 
   return (
     <AnimatePresence>
@@ -95,7 +90,7 @@ function ComplaintDetailModal({ complaint, onClose }) {
               <button
                 onClick={onClose}
                 className="absolute top-2 right-2 p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 text-slate-500 transition cursor-pointer"
-               aria-label="Action button">
+                aria-label="Action button">
                 <X size={14} />
               </button>
               <p className="text-xs uppercase tracking-[0.3em] text-accent font-mono font-bold">
@@ -387,7 +382,7 @@ export default function ComplaintsPage() {
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
-  const { user, loading: authLoading } = useAuthContext();
+  const { loading: authLoading } = useAuthContext();
 
   const [complaints, setComplaints] = useState([
     {
