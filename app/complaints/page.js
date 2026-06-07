@@ -463,7 +463,7 @@ export default function ComplaintsPage() {
   return (
     <>
       {/* PERFECT CHROMATIC CANVAS WRAPPER ARCHITECTURE SYNCED WITH WELLNESS/FOCUS SUITE */}
-      <div className="fixed inset-0 -z-10 bg-slate-50 dark:bg-[#070913]">
+      <div className="fixed inset-0 -z-10 bg-white dark:bg-[#070913]">
         <DarkVeil />
         <div className="absolute top-[-100px] left-[-100px] w-[500px] h-[500px] bg-purple-500/10 dark:bg-purple-600/10 rounded-full blur-[120px] pointer-events-none animate-pulse" />
         <div
